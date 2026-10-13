@@ -805,3 +805,17 @@ dialog.rich-modal { width: min(96vw, 560px); padding: 16px; }
 .nav-switch { display: block; width: 100%; padding: 6px 8px 2px; text-align: left; font-family: var(--display); font-weight: 600; font-size: .82rem; color: var(--blue-d); border-radius: 10px; }
 .nav-switch:hover { text-decoration: underline; }
 .pf-actions { flex-wrap: wrap; }
+
+/* ---------- Botões do perfil: à direita do nome no computador; lado a lado, numa linha própria, no celular ---------- */
+.pf-actions { flex-wrap: nowrap; flex: none; }
+.pf-actions .btn { white-space: nowrap; }
+@media (min-width: 900px) {
+  .pf-id { flex-wrap: nowrap; }
+  .pf-id .pf-name { flex: 1; min-width: 0; }
+  .pf-actions .btn { padding: 0 16px; }
+}
+@media (max-width: 899px) {
+  .pf-actions { flex: 1 1 100%; margin-left: calc((var(--ax) + var(--av) - 6px) * -1); margin-top: 4px; }
+  .pf-actions .btn { flex: 1; min-height: 40px; padding: 0 10px; font-size: .9rem; }
+  .pf-actions .icon-btn { flex: none; }
+}

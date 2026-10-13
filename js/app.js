@@ -199,13 +199,20 @@
     if (!el) { el = document.body.appendChild(Object.assign(document.createElement('div'), { id: 'toast' })); el.setAttribute('role', 'status'); }
     el.textContent = text; el.hidden = !text;
   }
+  // A foto é decodificada já reduzida (lado maior em torno de 1600 px) para caber na memória do celular.
   async function toUsable(file) {
     if (!isHeic(file)) return file;
     toast('Convertendo foto HEIC…');
     try {
-      if (!window.heic2any) await loadScript('vendor/heic2any.min.js');
-      const out = await window.heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
-      return new File([Array.isArray(out) ? out[0] : out], file.name.replace(/\.hei[cf]$/i, '.jpg'), { type: 'image/jpeg' });
+      if (!window.HeicTo) await loadScript('vendor/heic-to.js');
+      const bmp = await window.HeicTo({ blob: file, type: 'bitmap', options: { resizeWidth: 1600, resizeQuality: 'medium' } });
+      const cv = document.createElement('canvas');
+      cv.width = bmp.width; cv.height = bmp.height;
+      cv.getContext('2d').drawImage(bmp, 0, 0);
+      if (bmp.close) bmp.close();
+      const blob = await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.88));
+      cv.width = cv.height = 0;
+      return new File([blob], file.name.replace(/\.hei[cf]$/i, '.jpg'), { type: 'image/jpeg' });
     } catch (e) {
       console.error('MEOWorld: HEIC', e);
       alert(`Não consegui converter “${file.name}”. Tente outra foto ou salve em JPEG.`);
@@ -215,7 +222,7 @@
   const pickFile = (accept, multiple = false) => new Promise((res) => {
     const i = document.createElement('input');
     i.type = 'file'; i.accept = accept.includes('image/*') ? accept + ',.heic,.heif' : accept; i.multiple = multiple;
-    i.onchange = async () => res(await Promise.all([...i.files].map(toUsable)));
+    i.onchange = async () => { const list = []; for (const f of i.files) list.push(await toUsable(f)); res(list); }; // uma por vez, para não estourar a memória
     i.click();
   });
 
