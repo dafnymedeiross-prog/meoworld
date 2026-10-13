@@ -128,6 +128,8 @@
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
     palette: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 2-2 0-1.6-1.2-2 .3-3.2 1-.8 2.7-.3 4.2-.8A4 4 0 0 0 21 11c0-4.4-4-8-9-8z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15" cy="8" r="1"/></svg>',
     shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.500c0 4.5 3 8 7.5 9.5 4.5-1.5 7.5-5 7.5-9.500V6z"/><path d="m9 12 2.2 2.200L15.2 10"/></svg>',
+    link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1"/><path d="M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/></svg>',
+    image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m5 18 5-5 3 3 2-2 4 4"/></svg>',
     dots: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
     sticker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3v-8z"/><path d="M14 3v4a3 3 0 0 0 3 3h4"/><path d="M8.5 14.500c1 1.3 2.2 2 3.5 2s2.5-.7 3.5-2"/></svg>',
     clip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m20 11-8.5 8.500a5 5 0 0 1-7-7L13 4a3.5 3.5 0 0 1 5 5l-8.3 8.300a2 2 0 0 1-2.9-2.900L14.5 7"/></svg>',
@@ -370,6 +372,90 @@
   }
   const chatPanel = (activeId) => `<div class="chat-panel"><h2>C(h)ats</h2><p class="muted">Meow-papo entre tutores e seus gatos</p>${chatList(activeId)}</div>`;
 
+  // ---------- Editor de posts (estilo blog): cada parágrafo tem um estilo, o texto tem cor e formatação,
+  // e as fotos entram no meio do texto, em fileiras de até três ----------
+  const TEXT_COLORS = ['#ff4930', '#ff8a00', '#00cf35', '#00b8ff', '#7c5cff', '#ff62ce'];
+  const RICH_STYLES = [['normal', 'Normal'], ['maior', 'Maior'], ['gigante', 'Gigante'], ['citacao', 'Citação'], ['dialogo', 'Diálogo'], ['cursiva', 'Cursiva'], ['recuado', 'Recuado'], ['ul', 'Lista com pontos'], ['ol', 'Lista numerada']];
+  const toRGB = (c) => { const el = document.createElement('span'); el.style.color = c; const m = el.style.color.match(/\d+/g); return m ? m.slice(0, 3).join(',') : ''; };
+  const COLOR_RGB = TEXT_COLORS.map(toRGB);
+  // Só passam negrito, itálico, riscado, link http(s), quebra de linha e as cores da paleta. O resto vira texto puro.
+  function cleanInline(node) {
+    let out = '';
+    node.childNodes.forEach((n) => {
+      if (n.nodeType === 3) { out += esc(n.nodeValue); return; }
+      if (n.nodeType !== 1 || n.classList.contains('rich-ctl')) return;
+      const tag = n.tagName, inner = cleanInline(n);
+      if (tag === 'BR') out += '<br>';
+      else if (tag === 'B' || tag === 'STRONG') out += `<b>${inner}</b>`;
+      else if (tag === 'I' || tag === 'EM') out += `<i>${inner}</i>`;
+      else if (tag === 'S' || tag === 'STRIKE' || tag === 'DEL') out += `<s>${inner}</s>`;
+      else if (tag === 'A' && /^https?:\/\//i.test(n.getAttribute('href') || '')) out += `<a href="${esc(n.getAttribute('href'))}" target="_blank" rel="noopener noreferrer nofollow">${inner}</a>`;
+      else {
+        const cls = [...n.classList].find((c) => /^tc-[0-5]$/.test(c));
+        const idx = cls ? +cls.slice(3) : COLOR_RGB.indexOf(toRGB(n.style.color || n.getAttribute('color') || ''));
+        let h = inner;
+        if (n.style.fontWeight === 'bold' || +n.style.fontWeight >= 600) h = `<b>${h}</b>`;
+        if (n.style.fontStyle === 'italic') h = `<i>${h}</i>`;
+        if (/line-through/.test(`${n.style.textDecoration} ${n.style.textDecorationLine}`)) h = `<s>${h}</s>`;
+        out += idx >= 0 ? `<span class="tc-${idx}">${h}</span>` : h;
+      }
+    });
+    return out;
+  }
+  const cleanHTML = (html) => { const t = document.createElement('template'); t.innerHTML = String(html); return cleanInline(t.content); };
+  const postMedia = (p) => (p.kind === 'rich' ? (p.blocks || []).flatMap((b) => b.ids || []) : p.mediaId ? [p.mediaId] : []);
+  function richHTML(p) {
+    return `<div class="rich">${(p.blocks || []).map((b) => (b.t === 'img'
+      ? `<div class="rich-imgs n${Math.min(3, b.ids.length)}${b.stack ? ' stack' : ''}">${b.ids.slice(0, 3).map((id) => `<img data-media="${esc(id)}" alt="Imagem do post" loading="lazy">`).join('')}</div>`
+      : `<p class="rs-${RICH_STYLES.some(([k]) => k === b.s) ? b.s : 'normal'}">${cleanHTML(b.h)}</p>`)).join('')}</div>${(p.tags || []).length ? `<p class="post-tags">${p.tags.map((t) => `<span>${esc(t)}</span>`).join(' ')}</p>` : ''}`;
+  }
+
+  let richSel = null, richMedia = [], richDone = false;
+  function openRich() {
+    richSel = null; richMedia = []; richDone = false;
+    openModal(`<form id="rich-form" class="rich-form">
+      <div class="rich-author"><span class="avatar">${userFace()}</span><b>${esc(S.user.catName)}</b></div>
+      <div id="rich-editor" class="rich rich-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Conteúdo do post" data-ph="Conte o que o seu gatinho aprontou…"><p class="rs-normal"><br></p></div>
+      <label class="rich-tags"><span aria-hidden="true">#</span><input name="tags" maxlength="120" placeholder="Tags separadas por espaço" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Tags"></label>
+      <div class="rich-styles" id="rich-styles" hidden>${RICH_STYLES.map(([k, n]) => `<button type="button" class="rs-${k}" data-act="rich-style" data-id="${k}">${n}</button>`).join('')}</div>
+      <div class="rich-colors" role="group" aria-label="Cor do texto"><button type="button" class="tc-btn" data-act="rich-color" data-id="default" style="background:#2b3f4c" aria-label="Cor padrão"></button>${TEXT_COLORS.map((c, i) => `<button type="button" class="tc-btn" data-act="rich-color" data-id="${c}" style="background:${c}" aria-label="Cor ${i + 1}"></button>`).join('')}</div>
+      <div class="rich-bar" role="toolbar" aria-label="Formatação">
+        <button type="button" data-act="rich-menu" aria-label="Estilo do parágrafo" aria-haspopup="true"><b>Aa</b></button>
+        <button type="button" data-act="rich-cmd" data-id="bold" aria-label="Negrito"><b>B</b></button>
+        <button type="button" data-act="rich-cmd" data-id="italic" aria-label="Itálico"><i>i</i></button>
+        <button type="button" data-act="rich-cmd" data-id="strikeThrough" aria-label="Riscado"><s>S</s></button>
+        <button type="button" data-act="rich-link" aria-label="Link">${I.link}</button>
+        <button type="button" data-act="rich-img" aria-label="Fotos ou GIFs">${I.image}</button>
+        <span class="grow"></span>
+        <button type="button" class="btn small ghost" data-close>Cancelar</button><button class="btn small">Postar</button>
+      </div>
+      <p class="error" role="alert"></p></form>`, 'rich-modal');
+    const ed = document.getElementById('rich-editor');
+    try { document.execCommand('defaultParagraphSeparator', false, 'p'); document.execCommand('styleWithCSS', false, false); } catch { /* navegador sem suporte: segue com o padrão */ }
+    // Colar sempre como texto puro, para não trazer formatação (ou código) de fora.
+    ed.addEventListener('paste', (e) => { e.preventDefault(); document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain')); });
+    ed.focus();
+  }
+  // A seleção do texto é guardada, porque tocar nos botões da barra tira o foco do editor.
+  document.addEventListener('selectionchange', () => {
+    const ed = document.getElementById('rich-editor'), sel = window.getSelection();
+    if (ed && sel.rangeCount && ed.contains(sel.anchorNode)) richSel = sel.getRangeAt(0).cloneRange();
+  });
+  document.addEventListener('mousedown', (e) => { if (e.target.closest('.rich-bar, .rich-colors, .rich-styles') && !e.target.closest('input')) e.preventDefault(); });
+  function richFocus() {
+    const ed = document.getElementById('rich-editor');
+    ed.focus();
+    if (richSel) { const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(richSel); }
+    return ed;
+  }
+  // Parágrafo (filho direto do editor) onde está um nó.
+  const richBlock = (ed, node) => { let n = node && node.nodeType === 3 ? node.parentNode : node; while (n && n !== ed && n.parentNode !== ed) n = n.parentNode; return n && n !== ed ? n : null; };
+  // Quando o post é cancelado, as imagens já guardadas são apagadas.
+  modal.addEventListener('close', () => {
+    if (!richDone && richMedia.length) richMedia.forEach((id) => { delMedia(id).catch(() => {}); });
+    richMedia = [];
+  });
+
   // ---------- Timeline ----------
   let feedTab = 'foryou';
   const BOOT = Date.now();
@@ -398,9 +484,9 @@
   function postCard(p) {
     const c = p.author, liked = S.likedPosts.includes(p.id);
     const who = p.mine ? `<a class="avatar" href="#/perfil">${userFace()}</a>` : `<a class="avatar" href="#/gato/${c.id}">${catPic(c)}</a>`;
-    const media = p.mediaId ? `<img class="post-img" data-media="${p.mediaId}" alt="Imagem do post de ${esc(c.catName)}" loading="lazy">` : p.photo ? `<img class="post-img" src="${p.photo}" alt="Foto do post de ${esc(c.catName)}" loading="lazy">` : '';
+    const media = p.kind === 'rich' ? '' : p.mediaId ? `<img class="post-img" data-media="${p.mediaId}" alt="Imagem do post de ${esc(c.catName)}" loading="lazy">` : p.photo ? `<img class="post-img" src="${p.photo}" alt="Foto do post de ${esc(c.catName)}" loading="lazy">` : '';
     const bg = safeColor(p.bg, '#fff7e6');
-    const content = p.kind === 'blog'
+    const content = p.kind === 'rich' ? richHTML(p) : p.kind === 'blog'
       ? `<div class="blog" style="--blog-bg:${bg};--blog-ink:${inkFor(bg)};--blog-font:${PF_FONTS[p.font] || PF_FONTS.Fredoka}">${media}<h2>${esc(p.title)}</h2><div class="blog-body">${fmt(p.body)}</div></div>`
       : `${media}${p.caption ? `<p class="post-cap">${esc(p.caption)}</p>` : ''}`;
     return `<article class="card post">
@@ -415,13 +501,13 @@
     const posts = allPosts();
     const list = feedTab === 'following' ? posts.filter((p) => p.mine || isFollowing(p.author.id)) : posts;
     return `<div class="hello"><h1 class="page-title">Miau, ${esc(S.user.catName)}!</h1><p class="page-sub">O cantinho de quem é louco por gatos.</p></div>
-      <div class="chips only-mobile"><a class="chip" href="#/compras">Guia de compras</a><a class="chip" href="#/buscar">Buscar gatinhos</a><a class="chip" href="#/config">Configurações</a>${isAdmin() ? `<a class="chip" href="#/moderacao">Moderação${pendingReports().length ? ` (${pendingReports().length})` : ''}</a>` : ''}</div>
+      <div class="chips only-mobile"><a class="chip" href="#/compras">Guia de compras</a><a class="chip" href="#/catbooks">CatBooks</a></div>
       <div class="feed-bar">
         <div class="tabs" role="tablist">
           <button role="tab" aria-selected="${feedTab === 'foryou'}" class="${feedTab === 'foryou' ? 'on' : ''}" data-act="feed-tab" data-id="foryou">Para você</button>
           <button role="tab" aria-selected="${feedTab === 'following'}" class="${feedTab === 'following' ? 'on' : ''}" data-act="feed-tab" data-id="following">Seguindo</button>
         </div>
-        <span class="feed-new"><button class="btn small" data-act="new-post">${I.plus} Foto</button><button class="btn small ghost" data-act="new-blog">${I.plus} Blog</button></span>
+        <span class="feed-new"><button class="btn small" data-act="new-post">${I.plus} Foto</button><button class="btn small ghost" data-act="new-rich">${I.plus} Post</button></span>
       </div>
       <div class="timeline">${list.map(postCard).join('') || `<div class="card empty">Você ainda não segue ninguém. Dê uma olhada em “Para você” ou <a href="#/buscar"><u>busque gatinhos</u></a> para seguir.</div>`}</div>`;
   }
@@ -677,7 +763,7 @@
       </div>
       <div class="pf-shadow"><div class="card pf-card">
         <div class="pf-id">
-          <div class="pf-name"><h1>${esc(p.catName)}</h1><p>${[p.username && '@' + esc(p.username), p.owner && 'com ' + esc(p.owner)].filter(Boolean).join(' · ')}</p></div>
+          <div class="pf-name"><h1>${esc(p.catName)}${typeof ADMINS !== 'undefined' && ADMINS.includes(p.username) ? ` <span class="mod-badge" title="Moderadora do MEOWorld">${I.shield}Moderadora</span>` : ''}</h1><p>${[p.username && '@' + esc(p.username), p.owner && 'com ' + esc(p.owner)].filter(Boolean).join(' · ')}</p></div>
           ${action}
         </div>
         ${p.bio ? `<p class="pf-bio">${esc(p.bio)}</p>` : ''}
@@ -692,7 +778,7 @@
       ['Colocar uma biografia', !!S.user.bio, '<button class="btn small" data-act="edit-profile">Escrever</button>'],
       ['Colocar foto no perfil', !!S.user.photo, '<button class="btn small" data-act="edit-profile">Escolher</button>'],
       ['Colocar uma capa', !!S.user.cover, '<button class="btn small" data-act="edit-profile">Escolher</button>'],
-      ['Fazer a primeira postagem', S.posts.length > 0, '<button class="btn small" data-act="new-post">Postar</button>'],
+      ['Fazer a primeira postagem', S.posts.length > 0, '<button class="btn small" data-act="new-rich">Postar</button>'],
       ['Seguir o primeiro gatinho', S.following.filter(findCat).length > 0, '<a class="btn small" href="#/buscar">Buscar</a>']
     ];
     const done = steps.filter((s) => s[1]).length;
@@ -711,10 +797,10 @@
     const albums = S.albums.slice(0, 4).map((a) => `<a class="album" href="#/catbooks/${a.id}"><div class="cover">${a.items[0] ? `<img data-media="${a.items[0]}" alt="">` : I.book}</div><b>${esc(a.name)}</b></a>`).join('');
     const photos = S.albums.reduce((n, a) => n + a.items.length, 0);
     return pfPage(S.user.theme, `${profileHTML({ ...S.user, owner: S.settings.showOwner ? S.user.owner : '', hideBirth: !S.settings.showBirth }, S.user.photo ? userFace() : catFace(S.user.coat), true,
-        `<span class="pf-actions"><button class="btn" data-act="edit-profile">Editar perfil</button><a class="icon-btn soft only-mobile" href="#/config" aria-label="Configurações">${I.gear}</a></span>`,
+        `<span class="pf-actions"><button class="btn" data-act="edit-profile">Editar perfil</button></span>`,
         [[S.posts.length, S.posts.length === 1 ? 'post' : 'posts'], [localFollowers('u:' + session), 'seguidores'], [S.following.filter(findCat).length, 'seguindo'], [S.albums.length, S.albums.length === 1 ? 'álbum' : 'álbuns'], [photos, photos === 1 ? 'foto' : 'fotos'], [S.tiks.length, S.tiks.length === 1 ? 'vídeo' : 'vídeos']])}
       ${onboardHTML()}
-      ${postsSection(allPosts().filter((p) => p.mine), 'Seus posts aparecem aqui. <button class="link" data-act="new-post">Criar o primeiro</button>')}
+      ${postsSection(allPosts().filter((p) => p.mine), 'Seus posts aparecem aqui. <button class="link" data-act="new-rich">Criar o primeiro</button>')}
       <h2 class="section-title">CatBooks</h2>
       ${albums ? `<div class="grid">${albums}</div>` : '<div class="card empty">Seus álbuns aparecem aqui. <a href="#/catbooks"><u>Criar um álbum</u></a></div>'}`);
   }
@@ -871,7 +957,7 @@
         <small>${r.post ? 'Post de' : 'Perfil de'} ${c ? `${esc(c.catName)} (@${esc(c.username)})` : 'conta removida'} · denunciado por @${esc(r.by)} · ${timeAgo(r.ts)}</small></div>
         ${done ? `<span class="tag-done">${esc(done.action)}</span>` : ''}</header>
       ${r.details ? `<p class="mod-details">“${esc(r.details)}”</p>` : ''}
-      ${r.post ? (removed ? '<p class="muted">O post já foi removido.</p>' : `<div class="mod-post">${p.mediaId ? `<img data-media="${p.mediaId}" alt="">` : p.photo ? `<img src="${p.photo}" alt="">` : ''}<p>${p.kind === 'blog' ? `<b>${esc(p.title)}</b><br>${esc(String(p.body).slice(0, 160))}` : esc(p.caption || '(sem legenda)')}</p></div>`) : ''}
+      ${r.post ? (removed ? '<p class="muted">O post já foi removido.</p>' : `<div class="mod-post">${postMedia(p)[0] ? `<img data-media="${postMedia(p)[0]}" alt="">` : p.photo ? `<img src="${p.photo}" alt="">` : ''}<p>${p.kind === 'blog' ? `<b>${esc(p.title)}</b><br>${esc(String(p.body).slice(0, 160))}` : p.kind === 'rich' ? esc((p.blocks || []).filter((b) => b.t === 'p').map((b) => b.h.replace(/<[^>]+>/g, ' ')).join(' ').slice(0, 200) || '(só imagens)') : esc(p.caption || '(sem legenda)')}</p></div>`) : ''}
       ${suspended ? '<p class="muted">Esta conta está suspensa.</p>' : ''}
       ${done ? '' : `<div class="actions">
         ${r.post && !removed ? `<button class="btn small danger" data-act="mod-remove" data-id="${r.id}">Remover post</button>` : ''}
@@ -991,14 +1077,15 @@
     app.innerHTML = `<div class="shell">
       <header class="topbar"><a href="#/">${LOGO}</a>
         <div class="topbar-actions only-mobile"><a class="icon-btn" href="#/buscar" aria-label="Buscar gatinhos">${I.search}</a><a class="icon-btn" href="#/chats" aria-label="C(h)ats">${I.chat}</a>
-        <a class="avatar" href="#/perfil" aria-label="Meu PerfilCat">${userFace()}</a></div></header>
+        ${route === 'perfil' || route === 'config' ? `<a class="icon-btn ${route === 'config' ? 'on' : ''}" href="#/config" aria-label="Configurações">${I.gear}</a>` : `<a class="avatar" href="#/perfil" aria-label="Meu PerfilCat">${userFace()}</a>`}</div></header>
       <nav class="nav" aria-label="Principal">${NAV.map(([r, t, ic]) => `<a href="#/${r}" class="${r === route ? 'on' : ''}" ${r === route ? 'aria-current="page"' : ''}>${ic}<span>${t}</span></a>`).join('')}
         <a href="#/compras" class="only-desktop ${route === 'compras' ? 'on' : ''}" ${route === 'compras' ? 'aria-current="page"' : ''}>${I.shop}<span>Compras</span></a>
         <a href="#/buscar" class="only-desktop ${route === 'buscar' ? 'on' : ''}" ${route === 'buscar' ? 'aria-current="page"' : ''}>${I.search}<span>Buscar</span></a>
         <a href="#/chats" class="only-desktop">${I.chat}<span>C(h)ats</span></a>
         ${isAdmin() ? `<a href="#/moderacao" class="only-desktop ${route === 'moderacao' ? 'on' : ''}" ${route === 'moderacao' ? 'aria-current="page"' : ''}>${I.shield}<span>Moderação${pendingReports().length ? ` <i class="badge-n">${pendingReports().length}</i>` : ''}</span></a>` : ''}
         <a href="#/config" class="nav-cfg only-desktop ${route === 'config' ? 'on' : ''}" ${route === 'config' ? 'aria-current="page"' : ''}>${I.gear}<span>Configurações</span></a>
-        <a href="#/perfil" class="nav-me only-desktop ${route === 'perfil' ? 'on' : ''}" ${route === 'perfil' ? 'aria-current="page"' : ''}><span class="avatar">${userFace()}</span><span><b>${esc(S.user.catName)}</b><small>@${esc(S.user.username || 'perfil')}</small></span></a></nav>
+        <a href="#/perfil" class="nav-me only-desktop ${route === 'perfil' ? 'on' : ''}" ${route === 'perfil' ? 'aria-current="page"' : ''}><span class="avatar">${userFace()}</span><span><b>${esc(S.user.catName)}</b><small>@${esc(S.user.username || 'perfil')}</small></span></a>
+        ${isAdmin() ? `<a href="#/moderacao" class="only-mobile nav-mod ${route === 'moderacao' ? 'on' : ''}" ${route === 'moderacao' ? 'aria-current="page"' : ''}>${I.shield}<span>Moderar</span>${pendingReports().length ? `<i class="badge-n" aria-label="${pendingReports().length} pendentes">${pendingReports().length}</i>` : ''}</a>` : ''}</nav>
       <main class="main">${view}</main></div>`;
     hydrate();
     const msgs = document.getElementById('msgs');
@@ -1110,6 +1197,19 @@
     return c.toDataURL('image/jpeg', 0.85);
   }
 
+  function richNewRow() {
+    const row = document.createElement('div');
+    row.className = 'rich-imgs'; row.contentEditable = 'false';
+    row.innerHTML = '<span class="rich-ctl row-ctl"><button type="button" data-act="rich-row" data-id="up" aria-label="Mover linha para cima">↑</button><button type="button" data-act="rich-row" data-id="down" aria-label="Mover linha para baixo">↓</button><button type="button" data-act="rich-row" data-id="layout" aria-pressed="false" aria-label="Alternar entre lado a lado e empilhadas">▤</button><button type="button" data-act="rich-row" data-id="del" aria-label="Remover linha de fotos">×</button></span>';
+    return row;
+  }
+  // Ajusta o número de colunas da linha; linha sem foto some.
+  function richFixRow(row) {
+    const n = row.querySelectorAll('figure').length;
+    if (!n) { row.remove(); return; }
+    row.classList.remove('n1', 'n2', 'n3'); row.classList.add('n' + n);
+  }
+
   const actions = {
     'like-seed': (id) => { S.likedSeeds = S.likedSeeds.includes(id) ? S.likedSeeds.filter((x) => x !== id) : [...S.likedSeeds, id]; keepFeed(); },
     'like-tik': (id) => { const t = S.tiks.find((x) => x.id === id); t.liked = !t.liked; keepFeed(); },
@@ -1212,7 +1312,8 @@
       if (!confirm('Excluir este post?')) return;
       const p = S.posts.find((x) => x.id === id);
       S.posts = S.posts.filter((x) => x.id !== id);
-      save(); await delMedia(p.mediaId); render();
+      save(); render();
+      for (const mid of postMedia(p)) { try { await delMedia(mid); } catch { /* já removida */ } }
     },
     // ----- chat -----
     'chat-panel': (id, el) => { const name = el.dataset.m; chatUI = { id, panel: chatUI.id === id && chatUI.panel === name ? null : name }; refreshChat(id); },
@@ -1299,17 +1400,83 @@
     },
     // ----- aparência do perfil -----
     'theme-preset': (id) => { draft.theme = id === 'default' ? null : { ...PF_PRESETS[id] }; showEdit(); },
-    'new-blog': () => openModal(`<form id="blog-form"><h2>Novo post de blog</h2>
-      <label class="field"><span>Título</span><span class="plain"><input name="title" maxlength="80" required></span></label>
-      <label class="field"><span>Texto</span><span class="plain"><textarea name="body" maxlength="3000" rows="7" required placeholder="Conte uma história do seu gatinho…"></textarea></span>
-        <small class="hint">Deixe uma linha em branco entre parágrafos. Use “# ” para subtítulo, “> ” para citação, **negrito** e *itálico*.</small></label>
-      <div class="row-style">
-        <label class="field"><span>Cor do fundo</span><input type="color" name="bg" value="#fff7e6"></label>
-        <label class="field"><span>Fonte</span><span class="plain"><select name="font">${Object.keys(PF_FONTS).map((n) => `<option>${n}</option>`).join('')}</select></span></label>
-      </div>
-      <label class="field"><span>Imagem de abertura (opcional)</span><span class="plain"><input type="file" name="file" accept="image/*" style="padding-top:14px"></span></label>
-      <p class="error" role="alert"></p>
-      <div class="actions"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Publicar</button></div></form>`),
+    // ----- editor de posts -----
+    'new-rich': () => openRich(),
+    'rich-cmd': (id) => { richFocus(); document.execCommand(id, false, null); },
+    'rich-color': (id) => { richFocus(); document.execCommand('foreColor', false, id === 'default' ? '#2b3f4c' : id); },
+    'rich-link': () => {
+      const url = (prompt('Endereço do link (começando com https://):') || '').trim();
+      if (!url) return;
+      if (!/^https?:\/\//i.test(url)) { alert('O link precisa começar com http:// ou https://'); return; }
+      richFocus(); document.execCommand('createLink', false, url);
+    },
+    'rich-menu': () => { const m = document.getElementById('rich-styles'); m.hidden = !m.hidden; },
+    'rich-style': (id) => {
+      const ed = richFocus(), sel = window.getSelection();
+      let a = richBlock(ed, sel.anchorNode), b = richBlock(ed, sel.focusNode);
+      if (!a) { a = b = ed.appendChild(Object.assign(document.createElement('p'), { innerHTML: '<br>' })); }
+      if (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_PRECEDING) [a, b] = [b, a];
+      for (let n = a; n; n = n.nextElementSibling) { if (!n.classList.contains('rich-imgs')) n.className = 'rs-' + id; if (n === b) break; }
+      document.getElementById('rich-styles').hidden = true;
+    },
+    'rich-img': async () => {
+      const files = (await pickFile('image/*', true)).slice(0, 9);
+      if (!files.length) return;
+      const ed = document.getElementById('rich-editor');
+      let after = richSel ? richBlock(ed, richSel.endContainer) : null;
+      for (let i = 0; i < files.length; i += 3) {
+        const row = richNewRow();
+        for (const f of files.slice(i, i + 3)) {
+          try {
+            let blob = f;
+            if (f.type !== 'image/gif') { const cv = await shrink(f, 1280); blob = await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.85)); }
+            const id = await putMedia(blob);
+            richMedia.push(id);
+            const fig = document.createElement('figure');
+            fig.dataset.mid = id;
+            fig.innerHTML = `<img alt="" src="${await mediaURL(id)}"><span class="rich-ctl fig-ctl"><button type="button" data-act="rich-pic" data-id="left" aria-label="Mover para a esquerda">←</button><button type="button" data-act="rich-pic" data-id="right" aria-label="Mover para a direita">→</button><button type="button" data-act="rich-pic" data-id="down" aria-label="Colocar em uma linha própria, abaixo">↓</button><button type="button" data-act="rich-pic" data-id="del" aria-label="Remover foto">×</button></span>`;
+            row.insertBefore(fig, row.querySelector('.row-ctl'));
+          } catch { alert(`Não consegui adicionar “${f.name}”.`); }
+        }
+        if (!row.querySelector('figure')) continue;
+        if (after) after.after(row); else ed.appendChild(row);
+        richFixRow(row);
+        after = row;
+      }
+      // Sempre sobra um parágrafo depois das fotos, para continuar escrevendo.
+      if (after && !after.nextElementSibling) after.after(Object.assign(document.createElement('p'), { className: 'rs-normal', innerHTML: '<br>' }));
+    },
+    // Uma foto: trocar de lugar na linha, passar para a linha vizinha, ganhar linha própria ou sair.
+    'rich-pic': (id, el) => {
+      const fig = el.closest('figure'), row = fig.parentNode;
+      const isRow = (n) => !!n && n.classList.contains('rich-imgs');
+      const room = (r) => isRow(r) && r.querySelectorAll('figure').length < 3;
+      if (id === 'del') fig.remove();
+      if (id === 'left') {
+        const p = fig.previousElementSibling, pr = row.previousElementSibling;
+        if (p && p.tagName === 'FIGURE') row.insertBefore(fig, p);
+        else if (room(pr)) { pr.insertBefore(fig, pr.querySelector('.row-ctl')); richFixRow(pr); }
+      }
+      if (id === 'right') {
+        const n = fig.nextElementSibling, nx = row.nextElementSibling;
+        if (n && n.tagName === 'FIGURE') row.insertBefore(n, fig);
+        else if (room(nx)) { nx.insertBefore(fig, nx.firstChild); richFixRow(nx); }
+      }
+      if (id === 'down' && row.querySelectorAll('figure').length > 1) {
+        const nr = richNewRow();
+        nr.insertBefore(fig, nr.firstChild);
+        row.after(nr); richFixRow(nr);
+      }
+      richFixRow(row);
+    },
+    // A linha inteira: subir, descer, alternar entre lado a lado e empilhadas, ou remover.
+    'rich-row': (id, el) => {
+      const row = el.closest('.rich-imgs'), ed = row.parentNode;
+      if (id === 'up' && row.previousElementSibling) ed.insertBefore(row, row.previousElementSibling);
+      if (id === 'down' && row.nextElementSibling) ed.insertBefore(row.nextElementSibling, row);
+      if (id === 'layout') { row.classList.toggle('stack'); el.textContent = row.classList.contains('stack') ? '▥' : '▤'; el.setAttribute('aria-pressed', row.classList.contains('stack')); }
+      if (id === 'del') row.remove();
+    },
     // ----- moderação -----
     'mod-dismiss': (id) => { const m = getMod(); m.handled[id] = { action: 'Arquivada', ts: Date.now() }; putMod(m); render(); },
     'mod-remove': async (id) => {
@@ -1321,7 +1488,7 @@
         const st = accountState(found.owner);
         st.posts = (st.posts || []).filter((p) => p.id !== r.post);
         if (found.owner === session) save(); else localStorage.setItem(`${KEY}:${found.owner}`, JSON.stringify(st));
-        if (found.post.mediaId) { try { await delMedia(found.post.mediaId); } catch { /* já removida */ } }
+        for (const mid of postMedia(found.post)) { try { await delMedia(mid); } catch { /* já removida */ } }
       }
       // Todas as denúncias sobre o mesmo post ficam resolvidas juntas.
       allReports().filter((x) => x.post === r.post).forEach((x) => { m.handled[x.id] = { action: 'Post removido', ts: Date.now() }; });
@@ -1342,7 +1509,7 @@
     logout: () => { setSession(null); authView = 'login'; location.hash = ''; render(); },
     'delete-account': async () => {
       if (!confirm(`Excluir a conta @${session}? Isso apaga o perfil, álbuns, vídeos e conversas dela neste navegador.`)) return;
-      const media = [...S.albums.flatMap((a) => a.items), ...S.tiks.map((t) => t.mediaId), ...S.posts.map((p) => p.mediaId)];
+      const media = [...S.albums.flatMap((a) => a.items), ...S.tiks.map((t) => t.mediaId), ...S.posts.flatMap(postMedia)];
       try { await Promise.all(media.map(delMedia)); } catch { /* sem mídia para limpar */ }
       localStorage.removeItem(`${KEY}:${session}`);
       delete accounts[session]; saveAccounts();
@@ -1467,18 +1634,25 @@
       return;
     }
 
-    if (f.id === 'blog-form') {
-      if (!str('title') || !str('body')) { err.textContent = 'Escreva o título e o texto.'; return; }
-      try {
-        const file = f.file.files[0];
-        let mediaId = '';
-        if (file) {
-          const cv = await shrink(file, 1280);
-          mediaId = await putMedia(await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.85)));
+    if (f.id === 'rich-form') {
+      const ed = f.querySelector('#rich-editor'), blocks = [], used = [];
+      [...ed.childNodes].forEach((n) => {
+        if (n.nodeType === 1 && n.classList.contains('rich-imgs')) {
+          const ids = [...n.querySelectorAll('figure')].map((g) => g.dataset.mid).filter((x) => richMedia.includes(x));
+          if (ids.length) { blocks.push({ t: 'img', ids, stack: n.classList.contains('stack') }); used.push(...ids); }
+          return;
         }
-        S.posts.push({ id: uid(), kind: 'blog', title: str('title'), body: String(d.body || '').trim(), bg: safeColor(str('bg'), '#fff7e6'), font: PF_FONTS[str('font')] ? str('font') : 'Fredoka', mediaId, ts: Date.now() });
-        save(); modal.close(); feedTab = 'foryou'; location.hash = '#/'; render(); window.scrollTo(0, 0);
-      } catch { err.textContent = 'Não consegui publicar. Tente sem a imagem.'; }
+        const h = n.nodeType === 3 ? esc(n.nodeValue) : n.nodeType === 1 ? cleanInline(n) : '';
+        if (!h.replace(/<br>/g, '').trim()) return;
+        const st = n.nodeType === 1 ? ([...n.classList].find((c) => c.startsWith('rs-')) || 'rs-normal').slice(3) : 'normal';
+        blocks.push({ t: 'p', s: RICH_STYLES.some(([k]) => k === st) ? st : 'normal', h: h.slice(0, 4000) });
+      });
+      if (!blocks.length) { err.textContent = 'Escreva alguma coisa ou adicione uma foto.'; return; }
+      const tags = [...new Set(str('tags').split(/[\s,]+/).map(cleanTag).filter(Boolean))].slice(0, 8);
+      S.posts.push({ id: uid(), kind: 'rich', blocks: blocks.slice(0, 60), tags, ts: Date.now() });
+      richDone = true;
+      richMedia.filter((id) => !used.includes(id)).forEach((id) => { delMedia(id).catch(() => {}); });
+      save(); modal.close(); feedTab = 'foryou'; location.hash = '#/'; render(); window.scrollTo(0, 0);
       return;
     }
 
