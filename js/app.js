@@ -1,4 +1,4 @@
-/* MEOWorld — a rede social para pai ou mãe de gatos.
+/* MEOWorld — a rede social de quem ama gatos.
    Tudo roda no navegador: perfil/posts no localStorage, fotos e vídeos no IndexedDB. */
 (() => {
   const app = document.getElementById('app');
@@ -11,7 +11,9 @@
     albums: [],          // { id, name, items: [mediaId] }
     tiks: [],            // { id, mediaId, caption, trend, liked, ts }
     likedSeeds: [],
-    settings: { showOwner: true, showBirth: true, privateProfile: false, motion: true },
+    twin: null,          // { photo, emb } da foto enviada ao TwinCats
+    following: [],       // ids dos gatinhos seguidos
+    settings: { showOwner: true, showBirth: true, privateProfile: false, showInTwins: true, motion: true },
     savedFacts: [],
     chats: {
       c1: [{ from: 'c1', text: 'Miau! Bem-vindo(a) ao MEOWorld 😺' }],
@@ -59,7 +61,7 @@
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const today = () => new Date().toISOString().slice(0, 10);
-  const findCat = (id) => COMMUNITY.find((c) => c.id === id);
+  const findCat = (id) => allCats().find((c) => c.id === id);
 
   function age(birth) {
     const b = new Date(birth + 'T00:00:00');
@@ -94,6 +96,8 @@
     .replace('viewBox="0 0 100 100"', 'viewBox="12 10 76 76"')
     .replace('<rect width="100" height="100" fill="#e6f6ff"/>', `<rect width="100" height="100" fill="${coat}"/>`)
     .replace('<path d="M25 40 26 22 40 32zM75 40 74 22 60 32z" fill="#ffc9d4"/>', '');
+  // Foto do gatinho (quando houver) ou o desenho na cor da pelagem.
+  const catPic = (c) => (c.photo ? `<img src="${c.photo}" alt="" loading="lazy">` : catPic(c));
   const userFace = () => (S.user.photo ? `<img src="${S.user.photo}" alt="Foto de ${esc(S.user.catName)}">` : catSVG(S.user.coat));
 
   const LOGO = `<span class="logo" role="img" aria-label="MEOWorld">${LOGO_MARK}${LOGO_WORD}</span>`;
@@ -107,6 +111,8 @@
     chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
     heart: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-8-5.2-8-11a4.6 4.6 0 0 1 8-3 4.6 4.6 0 0 1 8 3c0 5.8-8 11-8 11z"/></svg>',
     gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.4-2.3 1a7.6 7.6 0 0 0-2.6-1.5L14.1 2.5H9.9l-.4 2.6A7.6 7.6 0 0 0 6.9 6.6l-2.3-1-2 3.4 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.4 2.3-1a7.6 7.6 0 0 0 2.6 1.5l.4 2.6h4.2l.4-2.6a7.6 7.6 0 0 0 2.6-1.5l2.3 1 2-3.4z"/></svg>',
+    shop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>',
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>'
   };
 
@@ -241,21 +247,22 @@
     return `<ul class="chat-list">${ids.map((id) => {
       const c = findCat(id);
       const last = S.chats[id][S.chats[id].length - 1];
-      return `<li><a href="#/chats/${id}" class="${id === activeId ? 'on' : ''}"><span class="avatar">${catSVG(c.coat, c.eyes)}</span>
+      return `<li><a href="#/chats/${id}" class="${id === activeId ? 'on' : ''}"><span class="avatar">${catPic(c)}</span>
         <span><b>${esc(c.catName)}</b><small>${esc(last ? last.text : 'Diga miau!')}</small></span></a></li>`;
     }).join('')}</ul>`;
   }
-  const chatPanel = (activeId) => `<div class="chat-panel"><h2>C(h)ats</h2><p class="muted">Um meow-papo para donos e gatos</p>${chatList(activeId)}</div>`;
+  const chatPanel = (activeId) => `<div class="chat-panel"><h2>C(h)ats</h2><p class="muted">Meow-papo entre tutores e seus gatos</p>${chatList(activeId)}</div>`;
 
   function viewHome() {
     const tiles = [
-      ['tikcats', I.tik, 'TikCats', 'Vídeos e trends de gatos'],
-      ['catbooks', I.book, 'CatBooks', 'Álbuns de fotos'],
-      ['twincats', I.twin, 'TwinCats?', 'Encontre seu(s) gêmeo(s)'],
-      ['curiouscats', I.curious, 'CuriousCats', 'Curiosidades sobre gatos']
+      ['tikcats', I.tik, 'TikCats', 'Vídeos e trends da gatosfera'],
+      ['catbooks', I.book, 'CatBooks', 'Os melhores cliques do seu gatinho'],
+      ['twincats', I.twin, 'TwinCats?', 'Será que seu gato tem um sósia?'],
+      ['curiouscats', I.curious, 'CuriousCats', 'Tudo o que você queria saber sobre gatos']
     ];
-    return `<div class="hello"><h1 class="page-title">Miau, ${esc(S.user.catName)}!</h1><p class="page-sub">A rede social para pai ou mãe de gatos.</p></div>
+    return `<div class="hello"><h1 class="page-title">Miau, ${esc(S.user.catName)}!</h1><p class="page-sub">O cantinho de quem é louco por gatos.</p></div>
       <div class="tiles">${tiles.map(([r, ic, t, d]) => `<a class="tile" href="#/${r}">${ic}<b>${t}</b><small>${d}</small></a>`).join('')}</div>
+      <a class="tile tile-wide" href="#/compras">${I.shop}<span><b>Guia de compras</b><small>Rações e areias: cara, média e barata, com preço médio</small></span></a>
       <div class="home-chats only-mobile">${chatPanel()}</div>`;
   }
 
@@ -270,11 +277,11 @@
     const seeds = SEED_TIKS.map((t) => {
       const c = findCat(t.cat), liked = S.likedSeeds.includes(t.id);
       return `<article class="tik demo" style="background:${t.bg}"><span class="badge">Demonstração</span>
-        <div class="demo-cat">${catSVG(c.coat, c.eyes).replace('<rect width="100" height="100" fill="#e6f6ff"/>', '')}</div>
+        <div class="demo-cat">${catPic(c).replace('<rect width="100" height="100" fill="#e6f6ff"/>', '')}</div>
         <div class="tik-info"><b><a href="#/gato/${c.id}">${esc(c.catName)}</a></b>${esc(t.caption)} <span>${t.trend}</span></div>
         <div class="tik-side"><button class="${liked ? 'on' : ''}" data-act="like-seed" data-id="${t.id}" aria-label="Curtir" aria-pressed="${liked}">${I.heart}</button><small>${t.likes + (liked ? 1 : 0)}</small></div></article>`;
     }).join('');
-    return `<div class="head-row"><div><h1 class="page-title">TikCats</h1><p class="page-sub">Vídeos de gatos e trends de gatos</p></div>
+    return `<div class="head-row"><div><h1 class="page-title">TikCats</h1><p class="page-sub">Os vídeos e as trends mais fofas da gatosfera.</p></div>
         <button class="btn" data-act="new-tik">+ Postar vídeo</button></div>
       <div class="chips">${TRENDS.map((t) => `<span class="chip">${t}</span>`).join('')}</div>
       <div class="feed">${mine}${seeds}</div>`;
@@ -284,7 +291,7 @@
     const albums = S.albums.map((a) => `<a class="album" href="#/catbooks/${a.id}">
         <div class="cover">${a.items[0] ? `<img data-media="${a.items[0]}" alt="">` : I.book}</div>
         <b>${esc(a.name)}</b><small class="muted">${a.items.length} foto${a.items.length === 1 ? '' : 's'}</small></a>`).join('');
-    return `<div class="head-row"><div><h1 class="page-title">CatBooks</h1><p class="page-sub">Fotos de gatos. Bem como o nome diz: álbum.</p></div>
+    return `<div class="head-row"><div><h1 class="page-title">CatBooks</h1><p class="page-sub">Guarde em álbuns os melhores cliques do seu gatinho.</p></div>
         <button class="btn" data-act="new-album">+ Novo álbum</button></div>
       ${albums ? `<div class="grid">${albums}</div>` : `<div class="card empty">Nenhum álbum ainda. Crie o primeiro e encha de fotos do(a) ${esc(S.user.catName)}!</div>`}`;
   }
@@ -299,46 +306,127 @@
         : '<div class="card empty">Álbum vazio. Toque em “+ Fotos”.</div>'}`;
   }
 
-  function twinScore(c) {
-    const u = S.user;
-    let s = 0;
-    if (c.breed.toLowerCase() === u.breed.trim().toLowerCase()) s += 45;
-    if (c.gender === u.gender) s += 15;
-    if (c.coat === u.coat) s += 20;
-    const d = Math.abs((age(c.birth) ?? 0) - (age(u.birth) ?? 0));
-    s += d <= 12 ? 20 : d <= 36 ? 10 : 0;
-    return s;
+  // ---------- TwinCats: semelhança por foto (IA no próprio navegador) ----------
+  // 100% não existe (cada gato é único). 99% fica para o "gêmeo perfeito": mesmo nome e mesma pelagem.
+  const sameName = (x, y) => plain(x).trim() === plain(y).trim();
+  const cosine = (p, q) => { let t = 0; for (let i = 0; i < p.length; i++) t += p[i] * q[i]; return t; };
+  // Converte a semelhança do modelo (na prática entre ~0,30 e ~0,75 para gatos diferentes) em porcentagem.
+  function photoScore(c) {
+    const e = c.emb || (typeof TWIN_EMB !== 'undefined' && TWIN_EMB[c.id]);
+    if (!S.twin || !e) return null;
+    return Math.max(1, Math.min(98, Math.round(((cosine(S.twin.emb, e) - 0.25) / 0.6) * 98)));
   }
-  function viewTwins() {
-    const list = COMMUNITY.map((c) => ({ c, s: twinScore(c) })).sort((a, b) => b.s - a.s);
-    return `<h1 class="page-title">TwinCats</h1><p class="page-sub">Para encontrar seu(s) gêmeo(s). Comparamos raça, pelagem, gênero e idade.</p>
-      <div class="list">${list.map(({ c, s }) => `<div class="card twin">
-        <a class="avatar big" href="#/gato/${c.id}" aria-label="Perfil de ${esc(c.catName)}">${catSVG(c.coat, c.eyes)}</a>
-        <div class="grow"><b>${esc(c.catName)}</b><span class="muted">${esc(c.breed)} · ${ageText(c.birth)}</span>
-          <div class="meter"><i style="width:${s}%"></i></div></div>
-        <span class="pct">${s}%</span>
-        <a class="btn small" href="#/chats/${c.id}">Miau</a></div>`).join('')}</div>
-      <p class="muted" style="margin-top:14px">Dica: escolha a cor da pelagem no seu PerfilCat para melhorar as combinações. Os gatos da comunidade são de demonstração.</p>`;
+  function profileScore(c) {
+    const u = S.user;
+    let n = 0;
+    if (c.breed.toLowerCase() === u.breed.trim().toLowerCase()) n += 45;
+    if (c.gender === u.gender) n += 15;
+    if (c.coat === u.coat) n += 20;
+    const dif = Math.abs((age(c.birth) ?? 0) - (age(u.birth) ?? 0));
+    n += dif <= 12 ? 20 : dif <= 36 ? 10 : 0;
+    return Math.min(98, n);
+  }
+  function twinScore(c) {
+    const photo = photoScore(c);
+    if (sameName(c.catName, S.user.catName) && (c.coat === S.user.coat || (photo !== null && photo >= 75))) return 99;
+    return photo !== null ? photo : profileScore(c);
   }
 
-  let factFilter = 'Todas';
+  const loadScript = (src) => new Promise((res, rej) => {
+    const el = document.createElement('script');
+    el.src = src; el.onload = res; el.onerror = () => rej(new Error('script'));
+    document.head.appendChild(el);
+  });
+  let twinModel = null, twinBusy = '', twinMsg = '';
+  async function getTwinModel() {
+    if (twinModel) return twinModel;
+    if (!window.tf) await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
+    if (!window.mobilenet) await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js');
+    twinModel = await window.mobilenet.load({ version: 2, alpha: 1.0 });
+    return twinModel;
+  }
+  async function analyzeTwinPhoto(file) {
+    const setBusy = (t) => { twinBusy = t; if (location.hash.startsWith('#/twincats')) render(); };
+    twinMsg = '';
+    try {
+      setBusy('Preparando a foto…');
+      const big = await shrink(file, 600);
+      const side = Math.min(big.width, big.height);
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = 224;
+      cv.getContext('2d').drawImage(big, (big.width - side) / 2, (big.height - side) / 2, side, side, 0, 0, 224, 224);
+      setBusy('Carregando a IA (só demora na primeira vez)…');
+      const model = await getTwinModel();
+      setBusy('Procurando os gatinhos mais parecidos…');
+      const top = await model.classify(cv, 5);
+      const isCat = top.some((t) => /cat|tabby|lynx|kitt|cougar|leopard|lion|tiger/i.test(t.className));
+      const v = window.tf.tidy(() => { const e = model.infer(cv, true); return e.div(e.norm()); });
+      const emb = Array.from(await v.data()).map((x) => Math.round(x * 1e4) / 1e4);
+      v.dispose();
+      S.twin = { photo: cv.toDataURL('image/jpeg', 0.85), emb };
+      save();
+      twinMsg = isCat ? '' : 'Não tenho certeza de que há um gato nessa foto. Para um resultado melhor, use uma foto nítida, de frente e com boa luz.';
+    } catch (e) {
+      twinMsg = 'Não consegui analisar a foto. A IA precisa de internet para carregar na primeira vez; tente de novo.';
+    }
+    setBusy('');
+  }
+
+  function viewTwins() {
+    const list = allCats().filter((c) => !c.local || c.inTwins).map((c) => ({ c, s: twinScore(c) })).sort((x, y) => y.s - x.s);
+    const byPhoto = !!S.twin;
+    return `<h1 class="page-title">TwinCats</h1><p class="page-sub">Será que seu gato tem um sósia? Envie uma foto e a IA procura os gatinhos mais parecidos.</p>
+      <div class="card twin-up">
+        ${byPhoto ? `<img class="twin-photo" src="${S.twin.photo}" alt="Foto enviada para o TwinCats">` : `<span class="twin-photo empty">${I.twin}</span>`}
+        <div class="grow">
+          <b>${byPhoto ? 'Comparando pela foto' : 'Compare pela foto'}</b>
+          <p class="muted">${byPhoto ? 'A porcentagem mostra o quanto cada gatinho se parece com a foto que você enviou.' : 'Sem foto, comparamos só raça, pelagem, gênero e idade do perfil.'}</p>
+          <div class="actions">${twinBusy ? `<span class="twin-busy" role="status">${twinBusy}</span>` : `
+            <button class="btn small" data-act="twin-photo">${byPhoto ? 'Trocar foto' : 'Enviar foto do meu gato'}</button>
+            ${byPhoto ? '<button class="btn small ghost" data-act="twin-clear">Remover foto</button>' : ''}`}</div>
+          ${twinMsg ? `<p class="twin-warn" role="alert">${twinMsg}</p>` : ''}
+        </div>
+      </div>
+      <p class="muted twin-note">100% não tem como: seu gatinho é único. O máximo é 99%, para quem tem o mesmo nome e a mesma pelagem.</p>
+      <p class="muted twin-note">${S.settings.showInTwins ? 'Sua foto entra na comparação dos outros tutores, para eles também encontrarem o seu gatinho. Em modo de teste local, isso vale para as contas criadas neste navegador.' : 'Você escolheu não aparecer no TwinCats de outras pessoas. Dá para mudar em Configurações.'}</p>
+      <div class="list">${list.map(({ c, s }) => `<div class="card twin">
+        <a class="avatar big" href="#/gato/${c.id}" aria-label="Perfil de ${esc(c.catName)}">${catPic(c)}</a>
+        <div class="grow"><b>${esc(c.catName)}${c.local ? ' <span class="tag-real">conta real</span>' : ''}</b><span class="muted">${esc(c.breed)} · ${ageText(c.birth)}</span>
+          <div class="meter"><i style="width:${s}%"></i></div></div>
+        <span class="pct">${s}%</span>${s === 99 ? '<span class="twin-badge">Gêmeo perfeito!</span>' : ''}
+        ${c.local ? `<a class="btn small ghost" href="#/gato/${c.id}">Ver</a>` : `<a class="btn small" href="#/chats/${c.id}">Miau</a>`}</div>`).join('')}</div>
+      <p class="muted" style="margin-top:14px">Em modo de teste local, entram na comparação as outras contas criadas neste navegador que enviaram foto (marcadas como “conta real”) e os gatos de demonstração, com fotos em domínio público do Wikimedia Commons.</p>`;
+  }
+
+  let factFilter = 'Mais importantes';
+  // Idade em anos humanos: 1º ano ≈ 15, 2º ano +9, depois +4 por ano.
+  function humanAge(m) {
+    if (m === null) return null;
+    const y = m <= 6 ? m * 10 / 6 : m <= 12 ? 10 + (m - 6) * 5 / 6 : m <= 24 ? 15 + (m - 12) * 9 / 12 : 24 + (m - 24) * 4 / 12;
+    return Math.round(y);
+  }
   function factCard(f, extra = '') {
     const on = S.savedFacts.includes(f.id);
     return `<article class="card fact ${extra}"><small>${extra ? 'Curiosidade do dia · ' : ''}${f.cat}</small><h3>${f.title}</h3><p>${f.text}</p>
       <button class="save ${on ? 'on' : ''}" data-act="save-fact" data-id="${f.id}" aria-label="Salvar curiosidade" aria-pressed="${on}">${I.heart}</button></article>`;
   }
   function viewCurious() {
-    const cats = ['Todas', ...new Set(FACTS.map((f) => f.cat)), 'Salvas'];
+    const cats = ['Mais importantes', ...new Set(FACTS.map((f) => f.cat)), 'Todas', 'Salvas'];
     const day = FACTS[Math.floor(Date.now() / 864e5) % FACTS.length];
-    const list = FACTS.filter((f) => factFilter === 'Todas' || (factFilter === 'Salvas' ? S.savedFacts.includes(f.id) : f.cat === factFilter));
-    return `<h1 class="page-title">CuriousCats</h1><p class="page-sub">Aprenda alguma curiosidade sobre gatos e outras diversas coisas sobre eles.</p>
-      <div class="list" style="margin-bottom:14px">${factCard(day, 'today')}</div>
+    const list = factFilter === 'Mais importantes' ? TOP_FACTS.map((t) => FACTS.find((f) => f.title === t)).filter(Boolean)
+      : FACTS.filter((f) => factFilter === 'Todas' || (factFilter === 'Salvas' ? S.savedFacts.includes(f.id) : f.cat === factFilter));
+    return `<h1 class="page-title">CuriousCats</h1><p class="page-sub">${FACTS.length} curiosidades, das fofuras aos cuidados de saúde.</p>
+      <div class="list" style="margin-bottom:14px">
+        ${humanAge(age(S.user.birth)) === null ? '' : `<article class="card age-card"><small>Calculadora de idade</small>
+          <p><b>${esc(S.user.catName)}</b> tem ${ageText(S.user.birth)}, o que equivale a cerca de <b>${humanAge(age(S.user.birth))} anos humanos</b>.</p></article>`}
+        ${factCard(day, 'today')}</div>
       <div class="chips">${cats.map((c) => `<button class="chip ${c === factFilter ? 'on' : ''}" data-act="filter-fact" data-id="${c}">${c}</button>`).join('')}</div>
-      <div class="list">${list.map((f) => factCard(f)).join('') || '<div class="card empty">Nada salvo ainda. Toque no coração de uma curiosidade.</div>'}</div>`;
+      <div class="list">${list.map((f) => factCard(f)).join('') || '<div class="card empty">Nada salvo ainda. Toque no coração de uma curiosidade.</div>'}</div>
+      <p class="muted" style="margin-top:14px">As curiosidades são informativas e não substituem a consulta com um veterinário.</p>`;
   }
 
   function viewChats() {
-    return `<h1 class="page-title">C(h)ats</h1><p class="page-sub">Um meow-papo para donos e gatos</p>${chatPanel()}`;
+    return `<h1 class="page-title">C(h)ats</h1><p class="page-sub">Meow-papo entre tutores e seus gatos</p>${chatPanel()}`;
   }
   function viewConvo(id) {
     const c = findCat(id);
@@ -346,7 +434,7 @@
     const msgs = S.chats[id] || [];
     return `<div class="card convo">
       <div class="convo-head"><a class="icon-btn only-mobile" href="#/chats" aria-label="Voltar">←</a>
-        <a class="avatar" href="#/gato/${id}">${catSVG(c.coat, c.eyes)}</a>
+        <a class="avatar" href="#/gato/${id}">${catPic(c)}</a>
         <div><b>${esc(c.catName)}</b><br><small class="muted">com ${esc(c.owner)} · conversa de demonstração</small></div></div>
       <div class="msgs" id="msgs">${msgs.map((m) => `<div class="msg ${m.from === 'me' ? 'me' : ''}">${esc(m.text)}</div>`).join('') || '<p class="empty">Diga miau para começar!</p>'}</div>
       <form id="send" data-id="${id}"><input name="text" placeholder="Escreva um miau…" maxlength="500" autocomplete="off" aria-label="Mensagem"><button class="btn">Enviar</button></form></div>`;
@@ -376,21 +464,58 @@
     const albums = S.albums.slice(0, 4).map((a) => `<a class="album" href="#/catbooks/${a.id}"><div class="cover">${a.items[0] ? `<img data-media="${a.items[0]}" alt="">` : I.book}</div><b>${esc(a.name)}</b></a>`).join('');
     const photos = S.albums.reduce((n, a) => n + a.items.length, 0);
     return `${profileHTML({ ...S.user, owner: S.settings.showOwner ? S.user.owner : '', hideBirth: !S.settings.showBirth }, S.user.photo ? userFace() : catFace(S.user.coat), true,
-        '<button class="btn" data-act="edit-profile">Editar perfil</button>',
-        [[S.albums.length, S.albums.length === 1 ? 'álbum' : 'álbuns'], [photos, photos === 1 ? 'foto' : 'fotos'], [S.tiks.length, S.tiks.length === 1 ? 'vídeo' : 'vídeos']])}
+        `<span class="pf-actions"><button class="btn" data-act="edit-profile">Editar perfil</button><a class="icon-btn soft only-mobile" href="#/config" aria-label="Configurações">${I.gear}</a></span>`,
+        [[localFollowers('u:' + session), 'seguidores'], [S.following.filter(findCat).length, 'seguindo'], [S.albums.length, S.albums.length === 1 ? 'álbum' : 'álbuns'], [photos, photos === 1 ? 'foto' : 'fotos'], [S.tiks.length, S.tiks.length === 1 ? 'vídeo' : 'vídeos']])}
       <h2 class="section-title">CatBooks</h2>
       ${albums ? `<div class="grid">${albums}</div>` : '<div class="card empty">Seus álbuns aparecem aqui. <a href="#/catbooks"><u>Criar um álbum</u></a></div>'}`;
   }
+  const isFollowing = (id) => S.following.includes(id);
+  const followBtn = (id, small = true) => `<button class="btn ${small ? 'small' : ''} ${isFollowing(id) ? 'ghost' : ''}" data-act="follow" data-id="${id}" aria-pressed="${isFollowing(id)}">${isFollowing(id) ? 'Seguindo' : 'Seguir'}</button>`;
+
   function viewCat(id) {
     const c = findCat(id);
     if (!c) return viewHome();
-    return `${profileHTML(c, catFace(c.coat, c.eyes), false, `<a class="btn" href="#/chats/${c.id}">Mandar um miau</a>`, [[twinScore(c) + '%', 'gêmeo seu']])}
-      <p class="muted" style="margin-top:12px">Perfil de demonstração.</p>`;
+    const followers = c.local ? localFollowers(c.id) : c.followers;
+    return `${profileHTML(c, c.photo ? catPic(c) : catFace(c.coat, c.eyes), false,
+        `<span class="pf-actions">${followBtn(c.id, false)}${c.local ? '' : `<a class="btn ghost" href="#/chats/${c.id}">Miau</a>`}</span>`,
+        [[followers + (isFollowing(c.id) ? 1 : 0), 'seguidores'], [twinScore(c) + '%', 'gêmeo seu']])}
+      <p class="muted" style="margin-top:12px">${c.local ? 'Conta criada neste navegador (modo de teste local).' : `Perfil de demonstração.${c.credit ? ` Foto: ${esc(c.credit.by)}, ${esc(c.credit.license)}, via <a href="${esc(c.credit.url)}" target="_blank" rel="noopener noreferrer"><u>Wikimedia Commons</u></a>.` : ''}`}</p>`;
   }
+
+  // ---- Buscar gatinhos pelo @usuário, nome do gato ou do(a) dono(a) ----
+  let searchQ = '';
+  const plain = (t) => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  function catRow(c) {
+    return `<div class="card twin"><a class="avatar big" href="#/gato/${c.id}" aria-label="Perfil de ${esc(c.catName)}">${catPic(c)}</a>
+      <a class="grow" href="#/gato/${c.id}"><b>${esc(c.catName)}</b><span class="muted">@${esc(c.username)}${c.owner ? ` · com ${esc(c.owner)}` : ''}${c.local ? ' · conta real' : ''}</span></a>
+      ${followBtn(c.id)}</div>`;
+  }
+  function searchResults() {
+    const q = plain(searchQ.trim().replace(/^@/, ''));
+    if (!q) {
+      const mine = allCats().filter((c) => isFollowing(c.id)), rest = allCats().filter((c) => !isFollowing(c.id));
+      return `${mine.length ? `<h2 class="section-title">Você segue</h2><div class="list">${mine.map(catRow).join('')}</div>` : ''}
+        ${rest.length ? `<h2 class="section-title">Sugestões</h2><div class="list">${rest.map(catRow).join('')}</div>` : ''}`;
+    }
+    const hits = allCats().filter((c) => [c.username, c.catName, c.owner].some((v) => plain(v).includes(q)));
+    return hits.length ? `<div class="list" style="margin-top:14px">${hits.map(catRow).join('')}</div>`
+      : `<div class="card empty" style="margin-top:14px">Nenhum gatinho encontrado para “${esc(searchQ.trim())}”.</div>`;
+  }
+  function viewSearch() {
+    return `<h1 class="page-title">Buscar</h1><p class="page-sub">Encontre o gatinho dos amigos pelo @usuário ou pelo nome.</p>
+      <label class="search-box">${I.search}<input id="search-input" type="search" placeholder="@usuario ou nome do gatinho" value="${esc(searchQ)}" maxlength="40" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Buscar gatinhos"></label>
+      <div id="search-results" aria-live="polite">${searchResults()}</div>
+      <p class="muted" style="margin-top:14px">Em modo de teste local, a busca encontra os gatinhos de demonstração e as outras contas criadas neste navegador.</p>`;
+  }
+  document.addEventListener('input', (e) => {
+    if (e.target.id !== 'search-input') return;
+    searchQ = e.target.value;
+    document.getElementById('search-results').innerHTML = searchResults();
+  });
 
   function viewSettings() {
     const u = S.user;
-    return `<h1 class="page-title">Configurações</h1><p class="page-sub">Sua conta no MEOWorld</p>
+    return `<h1 class="page-title">Configurações</h1><p class="page-sub">Sua conta, do seu jeito.</p>
       <div class="list settings">
         <section class="card"><h2>Conta</h2>
           <div class="set-row"><span class="avatar big">${userFace()}</span>
@@ -418,6 +543,7 @@
         <section class="card"><h2>Privacidade</h2>
           <label class="switch-row"><span><b>Mostrar o nome do(a) dono(a)</b><small>Aparece no perfil como “com Fulano”.</small></span><input type="checkbox" role="switch" data-act="set" data-id="showOwner" ${S.settings.showOwner ? 'checked' : ''}></label>
           <label class="switch-row"><span><b>Mostrar a data de nascimento</b><small>A idade continua aparecendo.</small></span><input type="checkbox" role="switch" data-act="set" data-id="showBirth" ${S.settings.showBirth ? 'checked' : ''}></label>
+          <label class="switch-row"><span><b>Aparecer no TwinCats dos outros</b><small>Deixa a foto do seu gato entrar na comparação de outros tutores. Em modo de teste local, vale para as contas deste navegador.</small></span><input type="checkbox" role="switch" data-act="set" data-id="showInTwins" ${S.settings.showInTwins ? 'checked' : ''}></label>
           <label class="switch-row"><span><b>Perfil privado</b><small>Só quem você aprovar vê álbuns e vídeos. Passa a valer quando houver outros usuários de verdade.</small></span><input type="checkbox" role="switch" data-act="set" data-id="privateProfile" ${S.settings.privateProfile ? 'checked' : ''}></label>
         </section>
         <section class="card"><h2>Aparência</h2>
@@ -432,6 +558,24 @@
           <button class="btn danger" data-act="delete-account">Excluir conta</button>
         </section>
       </div>`;
+  }
+
+  function viewShop() {
+    return `<h1 class="page-title">Guia de compras</h1><p class="page-sub">As marcas mais bem avaliadas em cada faixa de preço, com o valor médio.</p>
+      <div class="chips">${SHOP.groups.map((g, i) => `<a class="chip" href="#/compras" data-act="shop-jump" data-id="shop-${i}">${g.name}</a>`).join('')}</div>
+      ${SHOP.groups.map((g, i) => `<h2 class="section-title" id="shop-${i}">${g.name}</h2><p class="muted shop-note">${g.note}</p>
+        <div class="shop-grid">${g.tiers.map((t) => `<article class="card shop-card">
+          <span class="shop-tier t-${plain(t.tier)}">${t.tier}</span>
+          <h3>${esc(t.brand)}</h3>
+          <p class="shop-price"><b>${t.price}</b> ${g.unit} <span>em média</span></p>
+          <p>${t.why}</p>
+          <p class="muted">${t.pack}</p>
+          ${t.also ? `<p class="muted">Na mesma faixa: ${esc(t.also)}</p>` : ''}
+          <a class="btn small ghost shop-link" href="https://www.petlove.com.br/busca?q=${encodeURIComponent(t.q)}" target="_blank" rel="noopener noreferrer">Ver preço na Petlove ↗</a>
+        </article>`).join('')}</div>`).join('')}
+      ${SHOP.tips.map((g) => `<h2 class="section-title">${g.name}</h2>
+        <div class="list">${g.items.map(([t, x]) => `<article class="card fact"><h3>${t}</h3><p>${x}</p></article>`).join('')}</div>`).join('')}
+      <p class="muted" style="margin-top:14px">Preços pesquisados em lojas online em ${SHOP.date}. Mudam por loja, região e promoção: use como referência. Os rankings consultados são de sites de recomendação, não de laboratórios.</p>`;
   }
 
   // ---------- Roteamento ----------
@@ -450,7 +594,7 @@
     const focused = !!old && document.activeElement === old;
     const c = dockChat && findCat(dockChat);
     const win = c ? `<section class="dock-win" aria-label="Conversa com ${esc(c.catName)}">
-        <header><a class="avatar" href="#/gato/${c.id}">${catSVG(c.coat, c.eyes)}</a>
+        <header><a class="avatar" href="#/gato/${c.id}">${catPic(c)}</a>
           <div class="grow"><b>${esc(c.catName)}</b><small>com ${esc(c.owner)} · demonstração</small></div>
           <button class="dock-x" data-act="dock-close" aria-label="Fechar conversa">×</button></header>
         <div class="msgs" id="dock-msgs">${(S.chats[c.id] || []).map((m) => `<div class="msg ${m.from === 'me' ? 'me' : ''}">${esc(m.text)}</div>`).join('') || '<p class="empty">Diga miau para começar!</p>'}</div>
@@ -459,9 +603,9 @@
     const ids = Object.keys(S.chats).filter(findCat);
     dock.innerHTML = `${win}<section class="dock-list">
         <button class="dock-bar" data-act="dock-toggle" aria-expanded="${dockOpen}"><span class="avatar">${userFace()}</span><b>C(h)ats</b><span class="dock-chev" aria-hidden="true">${dockOpen ? '▾' : '▴'}</span></button>
-        ${dockOpen ? `<p class="muted">Um meow-papo para donos e gatos</p><ul class="chat-list">${ids.map((id) => {
+        ${dockOpen ? `<p class="muted">Meow-papo entre tutores e seus gatos</p><ul class="chat-list">${ids.map((id) => {
           const k = findCat(id), last = S.chats[id][S.chats[id].length - 1];
-          return `<li><a href="#/chats/${id}" class="${id === dockChat ? 'on' : ''}"><span class="avatar">${catSVG(k.coat, k.eyes)}</span><span><b>${esc(k.catName)}</b><small>${esc(last ? last.text : 'Diga miau!')}</small></span></a></li>`;
+          return `<li><a href="#/chats/${id}" class="${id === dockChat ? 'on' : ''}"><span class="avatar">${catPic(k)}</span><span><b>${esc(k.catName)}</b><small>${esc(last ? last.text : 'Diga miau!')}</small></span></a></li>`;
         }).join('')}</ul>` : ''}
       </section>`;
     const m = dock.querySelector('#dock-msgs');
@@ -484,6 +628,22 @@
     } else renderDock(clearDraft && dockChat === id);
   }
 
+  // ---------- Teste local: as outras contas deste navegador aparecem como gatinhos de verdade ----------
+  // Sem servidor, "outros usuários" são as demais contas criadas neste mesmo navegador.
+  function localCats() {
+    return Object.keys(accounts).filter((name) => name !== session).map((name) => {
+      const st = readJSON(`${KEY}:${name}`, {}), u = st.user;
+      if (!u) return null;
+      const cfg = Object.assign(defaults().settings, st.settings);
+      const twin = cfg.showInTwins && st.twin ? st.twin : null;
+      return { id: 'u:' + name, local: true, username: name, catName: u.catName, owner: cfg.showOwner ? u.owner : '', breed: u.breed, gender: u.gender,
+        birth: u.birth, hideBirth: !cfg.showBirth, coat: u.coat, bio: u.bio, cover: u.cover, photo: u.photo || (twin && twin.photo) || '', emb: twin && twin.emb, inTwins: !!twin };
+    }).filter(Boolean);
+  }
+  const allCats = () => [...localCats(), ...COMMUNITY];
+  // Quantas contas deste navegador seguem o gatinho com esse id.
+  const localFollowers = (id) => Object.keys(accounts).filter((name) => name !== session && (readJSON(`${KEY}:${name}`, {}).following || []).includes(id)).length;
+
   const applyPrefs = () => document.body.classList.toggle('no-motion', !!session && !S.settings.motion);
 
   function render() {
@@ -493,14 +653,16 @@
     const [route = '', arg] = location.hash.replace(/^#\/?/, '').split('/');
     const views = {
       '': viewHome, tikcats: viewTik, catbooks: () => (arg ? viewAlbum(arg) : viewBooks()), twincats: viewTwins,
-      curiouscats: viewCurious, chats: () => (arg ? viewConvo(arg) : viewChats()), perfil: viewProfile, config: viewSettings, gato: () => viewCat(arg)
+      curiouscats: viewCurious, chats: () => (arg ? viewConvo(arg) : viewChats()), perfil: viewProfile, compras: viewShop, buscar: viewSearch, config: viewSettings, gato: () => viewCat(arg)
     };
     const view = (views[route] || viewHome)();
     app.innerHTML = `<div class="shell">
       <header class="topbar"><a href="#/">${LOGO}</a>
-        <div class="topbar-actions only-mobile"><a class="icon-btn" href="#/config" aria-label="Configurações">${I.gear}</a><a class="icon-btn" href="#/chats" aria-label="C(h)ats">${I.chat}</a>
+        <div class="topbar-actions only-mobile"><a class="icon-btn" href="#/buscar" aria-label="Buscar gatinhos">${I.search}</a><a class="icon-btn" href="#/chats" aria-label="C(h)ats">${I.chat}</a>
         <a class="avatar" href="#/perfil" aria-label="Meu PerfilCat">${userFace()}</a></div></header>
       <nav class="nav" aria-label="Principal">${NAV.map(([r, t, ic]) => `<a href="#/${r}" class="${r === route ? 'on' : ''}" ${r === route ? 'aria-current="page"' : ''}>${ic}<span>${t}</span></a>`).join('')}
+        <a href="#/compras" class="only-desktop ${route === 'compras' ? 'on' : ''}" ${route === 'compras' ? 'aria-current="page"' : ''}>${I.shop}<span>Compras</span></a>
+        <a href="#/buscar" class="only-desktop ${route === 'buscar' ? 'on' : ''}" ${route === 'buscar' ? 'aria-current="page"' : ''}>${I.search}<span>Buscar</span></a>
         <a href="#/chats" class="only-desktop">${I.chat}<span>C(h)ats</span></a>
         <a href="#/config" class="nav-cfg only-desktop ${route === 'config' ? 'on' : ''}" ${route === 'config' ? 'aria-current="page"' : ''}>${I.gear}<span>Configurações</span></a>
         <a href="#/perfil" class="nav-me only-desktop ${route === 'perfil' ? 'on' : ''}" ${route === 'perfil' ? 'aria-current="page"' : ''}><span class="avatar">${userFace()}</span><span><b>${esc(S.user.catName)}</b><small>@${esc(S.user.username || 'perfil')}</small></span></a></nav>
@@ -660,6 +822,10 @@
     set: (id, el) => { S.settings[id] = el.checked; save(); applyPrefs(); },
     'dock-toggle': () => { dockOpen = !dockOpen; renderDock(); },
     'dock-close': () => { dockChat = null; renderDock(); },
+    follow: (id) => { S.following = isFollowing(id) ? S.following.filter((x) => x !== id) : [...S.following, id]; save(); render(); },
+    'shop-jump': (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+    'twin-photo': async () => { const [f] = await pickFile('image/*'); if (f) analyzeTwinPhoto(f); },
+    'twin-clear': () => { S.twin = null; twinMsg = ''; save(); render(); },
     logout: () => { setSession(null); authView = 'login'; location.hash = ''; render(); },
     'delete-account': async () => {
       if (!confirm(`Excluir a conta @${session}? Isso apaga o perfil, álbuns, vídeos e conversas dela neste navegador.`)) return;
@@ -685,7 +851,7 @@
     const chat = e.target.closest('a[href^="#/chats/"]');
     if (chat && isDesktop()) { e.preventDefault(); openDockChat(chat.getAttribute('href').slice(8)); return; }
     const el = e.target.closest('[data-act]');
-    if (el && actions[el.dataset.act]) actions[el.dataset.act](el.dataset.id, el);
+    if (el && actions[el.dataset.act]) { if (el.dataset.act === 'shop-jump') e.preventDefault(); actions[el.dataset.act](el.dataset.id, el); }
   });
 
   document.addEventListener('submit', async (e) => {
@@ -708,6 +874,11 @@
       S.user.username = name;
       localStorage.setItem(`${KEY}:${name}`, JSON.stringify(S));
       localStorage.removeItem(`${KEY}:${old}`);
+      for (const other of Object.keys(accounts)) {
+        if (other === name) continue;
+        const st = readJSON(`${KEY}:${other}`, null);
+        if (st && (st.following || []).includes('u:' + old)) { st.following = st.following.map((x) => (x === 'u:' + old ? 'u:' + name : x)); localStorage.setItem(`${KEY}:${other}`, JSON.stringify(st)); }
+      }
       session = name; localStorage.setItem(SES, name);
       render();
       const msg = document.querySelector('#user-form .error');

@@ -161,7 +161,7 @@ h1, h2, h3, .tile b, .section-title, .btn, .chip, .nav a, .pct { font-family: va
 .photo img { width: 100%; height: 100%; object-fit: cover; }
 
 /* ---------- TwinCats / CuriousCats ---------- */
-.list { display: grid; gap: 12px; }
+.list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .twin { display: flex; align-items: center; gap: 12px; padding: 14px; }
 .twin .avatar { background: var(--sky-3); }
 .twin .grow { flex: 1; min-width: 0; }
@@ -414,3 +414,54 @@ body.no-motion::before, body.no-motion::after { animation: none; }
   .shell { grid-template-columns: 230px minmax(0, 1fr) 300px; }
   #dock { right: max(24px, calc((100vw - 1320px) / 2 + 24px)); }
 }
+
+/* ---------- Buscar e seguir ---------- */
+.search-box { display: flex; align-items: center; gap: 10px; height: 54px; padding: 0 20px; border-radius: 27px; background: var(--white); color: var(--blue-d); box-shadow: 0 8px 30px rgba(79, 147, 184, .12); }
+.search-box:focus-within { outline: 3px solid var(--blue-d); outline-offset: 2px; }
+.search-box svg { width: 24px; height: 24px; flex: none; }
+.search-box input { flex: 1; min-width: 0; height: 100%; border: 0; background: none; font-weight: 600; outline: none; }
+.twin a.grow b, .twin a.grow .muted { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-actions { display: flex; align-items: center; gap: 8px; }
+.icon-btn.soft { background: var(--sky-3); }
+@media (min-width: 900px) and (max-height: 700px) { .nav a { padding: 6px 14px; } .nav .nav-me { padding-top: 10px; } }
+.age-card { padding: 18px; }
+.age-card small { text-transform: uppercase; font-weight: 700; letter-spacing: .05em; color: var(--blue); }
+.age-card p { margin-top: 4px; font-size: 1.05rem; line-height: 1.5; }
+.chips { flex-wrap: wrap; }
+
+/* ---------- Guia de compras ---------- */
+.tile-wide { grid-column: 1 / -1; flex-direction: row; justify-content: center; gap: 14px; margin-top: 14px; text-align: left; }
+.tile-wide svg { width: 44px; height: 44px; flex: none; }
+.tile-wide b, .tile-wide small { display: block; }
+.shop-note { margin: -4px 0 12px; }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.shop-card { padding: 18px; display: flex; flex-direction: column; gap: 6px; }
+.shop-card h3 { font-size: 1.25rem; color: var(--ink); }
+.shop-card p { line-height: 1.45; }
+.shop-tier { align-self: flex-start; padding: 4px 12px; border-radius: 999px; font-family: var(--display); font-weight: 600; font-size: .85rem; }
+.t-cara { background: #ffe9c7; color: #8a5a00; }
+.t-media { background: var(--sky-3); color: var(--blue-d); }
+.t-barata { background: #dcf5e3; color: #24754a; }
+.shop-price b { font-family: var(--display); font-size: 1.6rem; color: var(--blue-d); }
+.shop-price span { color: var(--blue); font-size: .85rem; }
+.shop-link { margin-top: auto; align-self: flex-start; }
+.shop-card > p:last-of-type { margin-bottom: 8px; }
+.shop-grid + .section-title, .list + .section-title { margin-top: 28px; }
+.section-title[id] { scroll-margin-top: 16px; }
+.shop-price b { display: block; line-height: 1.15; }
+.twin-badge { padding: 4px 10px; border-radius: 999px; background: #ffe9c7; color: #8a5a00; font-family: var(--display); font-weight: 600; font-size: .8rem; white-space: nowrap; }
+.twin { flex-wrap: wrap; }
+
+/* ---------- TwinCats por foto ---------- */
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.demo-cat img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 50%; border: 6px solid #fff; }
+.twin-up { display: flex; align-items: center; gap: 16px; padding: 16px; margin-bottom: 10px; flex-wrap: wrap; }
+.twin-up .grow { flex: 1; min-width: 200px; }
+.twin-up .actions { margin: 10px 0 0; }
+.twin-photo { flex: none; width: 96px; height: 96px; border-radius: 22px; object-fit: cover; }
+.twin-photo.empty { display: grid; place-items: center; background: var(--sky-3); color: var(--blue); }
+.twin-photo.empty svg { width: 52px; height: 40px; }
+.twin-busy { font-weight: 700; color: var(--blue-d); }
+.twin-warn { margin-top: 10px; color: #8a5a00; background: #fff4dc; border-radius: 14px; padding: 8px 12px; font-size: .9rem; }
+.twin-note { margin: 0 4px 14px; }
+.tag-real { margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: #dcf5e3; color: #24754a; font-family: var(--font); font-size: .72rem; font-weight: 700; white-space: nowrap; vertical-align: middle; }
