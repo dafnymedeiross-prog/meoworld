@@ -490,3 +490,153 @@ body.no-motion::before, body.no-motion::after { animation: none; }
 .feed-bar { max-width: 560px; }
 .twin-check { margin: 10px 0 0; }
 .twin-warn { white-space: normal; }
+
+/* ---------- C(h)ats: mídia, stickers, cor, "miaugitando" ---------- */
+.convo, .dock-win { --chat: var(--blue); }
+.msg.me { background: var(--chat); }
+.msg { position: relative; }
+.msg.rich { background: none !important; padding: 0; }
+.msg.gone { font-style: italic; opacity: .65; background: var(--sky-3) !important; color: var(--blue-d) !important; }
+.msg-media { display: block; max-width: min(240px, 100%); max-height: 260px; border-radius: 16px; }
+.msg-sticker { display: block; width: 110px; height: 110px; object-fit: contain; }
+.msg-sticker.emoji { font-size: 76px; line-height: 110px; text-align: center; }
+.msg-del { position: absolute; top: -8px; left: -10px; width: 24px; height: 24px; border-radius: 50%; background: var(--white); color: #b14848; font-weight: 700; line-height: 1; box-shadow: 0 1px 4px rgba(0, 0, 0, .25); opacity: 0; transition: opacity .12s; }
+.msg:hover .msg-del, .msg-del:focus-visible { opacity: 1; }
+@media (hover: none) { .msg-del { opacity: .85; } }
+.typing { align-self: flex-start; padding: 6px 12px; font-size: .85rem; font-style: italic; color: var(--blue-d); }
+.typing span { display: inline-block; animation: blink 1s steps(3) infinite; }
+@keyframes blink { 50% { opacity: .2; } }
+.convo-head .grow { flex: 1; min-width: 0; }
+.chat-tool { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; color: var(--blue-d); font-size: 1.15rem; }
+.chat-tool:hover, .chat-tool.on { background: var(--sky-3); }
+.chat-tool svg { width: 22px; height: 22px; }
+.chat-form { align-items: center; gap: 4px !important; }
+.chat-form input[name=text] { margin: 0 4px; }
+.chat-pop { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; border-top: 2px solid var(--sky-3); max-height: 170px; overflow-y: auto; }
+.chat-pop.emojis button { width: 36px; height: 36px; border-radius: 10px; font-size: 1.3rem; }
+.chat-pop.emojis button:hover { background: var(--sky-3); }
+.chat-pop.stickers > button, .chat-pop.stickers .mine > button:first-child { width: 58px; height: 58px; border-radius: 14px; background: var(--sky-3); padding: 4px; }
+.chat-pop.stickers .emoji { font-size: 2rem; }
+.chat-pop.stickers img { width: 100%; height: 100%; object-fit: contain; }
+.chat-pop.stickers .mine { position: relative; }
+.chat-pop.stickers .x { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; background: var(--white); color: #b14848; font-weight: 700; line-height: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); }
+.chat-pop.stickers .new { width: auto; padding: 0 14px; font-family: var(--display); font-weight: 600; color: var(--blue-d); }
+.chat-pop.colors button { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--white); box-shadow: 0 0 0 2px var(--sky-2); }
+.chat-pop.colors button.on { box-shadow: 0 0 0 3px var(--ink); }
+.chat-pop.colors small { color: var(--blue); margin-left: 6px; }
+.dock-win header .chat-tool { width: 32px; height: 32px; }
+.dock-win { height: min(480px, 74vh) !important; }
+
+/* ---------- Bloquear e denunciar ---------- */
+.menu { display: grid; gap: 8px; }
+.reasons { border: 0; padding: 0; margin: 0 0 12px; display: grid; gap: 8px; }
+.reasons legend { font-weight: 700; color: var(--blue-d); margin-bottom: 8px; padding: 0; }
+.reasons .check, #report-form > .check { margin-left: 0; }
+.plain-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.plain-list li { display: flex; align-items: center; gap: 10px; }
+.plain-list .avatar { background: var(--sky-3); }
+.plain-list .grow { flex: 1; min-width: 0; }
+.plain-list b, .plain-list small { display: block; }
+.plain-list small { color: var(--blue); }
+.plain-list.small li { font-size: .9rem; }
+.post header .icon-btn { width: 36px; height: 36px; flex: none; }
+.post header .icon-btn svg { width: 20px; height: 20px; }
+
+/* ---------- Perfil personalizável e posts de blog ---------- */
+.pf-page.themed { margin: 0 -8px; padding: 10px 8px 18px; border-radius: var(--radius); background: linear-gradient(160deg, var(--pf-bg), var(--pf-bg2)); }
+.themed .card { background: var(--pf-card); color: var(--pf-ink); }
+.themed .pf-name h1, .themed .section-title, .themed .tp-name { color: var(--pf-name); font-family: var(--pf-font); text-shadow: none; }
+.themed .pf-name p, .themed .pf-stats span, .themed .post header small, .themed .muted { color: var(--pf-ink); opacity: .72; }
+.themed .pf-stats b, .themed .post header b { color: var(--pf-ink); }
+.themed .pf-stats { border-top-color: color-mix(in srgb, var(--pf-ink) 16%, transparent); }
+.themed .pf-tags li { background: color-mix(in srgb, var(--pf-accent) 20%, var(--pf-card)); color: var(--pf-ink); }
+.themed .btn:not(.ghost):not(.danger) { background: var(--pf-accent); color: var(--pf-on-accent); }
+.themed .btn.ghost, .themed .icon-btn.soft { background: color-mix(in srgb, var(--pf-accent) 16%, var(--pf-card)); color: var(--pf-ink); }
+.themed .like { color: var(--pf-accent); }
+.themed .pf-face { background: var(--pf-card); }
+.theme-edit { border: 0; margin: 0 0 16px; padding: 14px; border-radius: 22px; background: var(--sky-3); }
+.theme-edit legend { float: left; width: 100%; padding: 0; margin-bottom: 4px; font-family: var(--display); font-weight: 700; text-transform: uppercase; color: var(--blue-d); }
+.theme-edit .muted { clear: both; margin-bottom: 10px; }
+.theme-presets { flex-wrap: wrap; }
+.theme-presets .chip { background: var(--white); }
+.color-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.color-grid label, .row-style label.field { display: grid; gap: 4px; font-size: .8rem; font-weight: 700; color: var(--blue-d); }
+input[type=color] { width: 100%; height: 40px; padding: 2px; border: 2px solid var(--white); border-radius: 12px; background: var(--white); cursor: pointer; }
+.theme-preview { margin: 0; padding: 10px; }
+.theme-preview .card { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-radius: 18px; }
+.tp-name { font-size: 1.3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-style { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: end; }
+.row-style .field > span:not(.plain) { margin-left: 0; }
+.feed-new { display: inline-flex; gap: 8px; }
+.blog { background: var(--blog-bg); color: var(--blog-ink); font-family: var(--blog-font); padding: 0 0 6px; }
+.blog h2 { font-family: inherit; font-size: 1.5rem; line-height: 1.25; text-transform: none; color: inherit; padding: 16px 18px 4px; overflow-wrap: anywhere; }
+.blog-body { padding: 4px 18px 10px; line-height: 1.6; overflow-wrap: anywhere; }
+.blog-body p { margin: 0 0 10px; }
+.blog-body h3 { font-family: inherit; font-size: 1.15rem; margin: 14px 0 6px; color: inherit; }
+.blog-body blockquote { margin: 0 0 10px; padding: 6px 14px; border-left: 4px solid currentColor; opacity: .85; font-style: italic; }
+.blog .post-img { aspect-ratio: 16 / 9; }
+.pf-page.themed { margin: 0; }
+.pf-stats { flex-wrap: wrap; row-gap: 12px; }
+.blog-body { font-size: 1.12em; }
+.blog h2 { font-size: 1.7rem; }
+
+/* ---------- Moderação ---------- */
+.mod-card { padding: 16px; }
+.mod-card header { display: flex; align-items: center; gap: 12px; }
+.mod-card header .avatar { background: var(--sky-3); }
+.mod-card header .grow { flex: 1; min-width: 0; }
+.mod-card header b, .mod-card header small { display: block; }
+.mod-card header small { color: var(--blue); line-height: 1.4; }
+.mod-details { margin: 10px 0 0; font-style: italic; }
+.mod-post { display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; padding: 10px; border-radius: 16px; background: var(--sky-3); }
+.mod-post img { width: 84px; height: 84px; border-radius: 12px; object-fit: cover; flex: none; }
+.mod-post p { line-height: 1.45; overflow-wrap: anywhere; min-width: 0; }
+.mod-card .actions { margin: 14px 0 0; }
+.tag-done { flex: none; padding: 4px 10px; border-radius: 999px; background: #dcf5e3; color: #24754a; font-family: var(--display); font-weight: 600; font-size: .8rem; }
+.badge-n { font-style: normal; display: inline-block; min-width: 20px; padding: 0 6px; margin-left: 4px; border-radius: 10px; background: #e0557a; color: #fff; font-size: .75rem; line-height: 20px; text-align: center; }
+
+/* Perfil personalizado: o tema pinta o fundo da página inteira enquanto se está nele. */
+body.page-themed { background: linear-gradient(160deg, var(--pf-bg), var(--pf-bg2)) fixed; }
+body.page-themed::before, body.page-themed::after { display: none; }
+.page-themed .pf-page.themed { background: none; padding: 0; border-radius: 0; }
+.page-themed .topbar .logo { filter: drop-shadow(.035em .045em 0 rgba(0, 0, 0, .28)); }
+/* Barra lateral em janelas baixas: itens mais compactos para caber sem rolagem. */
+.nav { scrollbar-width: thin; }
+@media (min-width: 900px) and (max-height: 720px) {
+  .nav { gap: 2px; padding: 10px 12px; }
+  .nav a { padding: 5px 14px; }
+  .nav a svg { width: 24px; height: 24px; }
+  .nav .nav-me { padding-top: 8px; }
+  .nav .nav-me .avatar { width: 38px; height: 38px; }
+}
+
+/* ---------- Primeiros passos ---------- */
+.onboard { margin: 16px 0 6px; padding: 18px; }
+.onboard header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.onboard h2 { font-size: 1.15rem; text-transform: uppercase; color: var(--blue-d); }
+.onboard ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.onboard li { display: flex; align-items: center; gap: 12px; min-height: 40px; }
+.onboard li .grow { flex: 1; min-width: 0; font-weight: 600; }
+.onboard li.ok .grow { opacity: .6; text-decoration: line-through; }
+.tick { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--blue); display: grid; place-items: center; font-weight: 700; color: var(--white); }
+li.ok .tick { background: #4caf7d; border-color: #4caf7d; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.themed .onboard h2 { color: var(--pf-name); }
+.themed .tick { border-color: var(--pf-accent); }
+
+/* ---------- Cor do chat: vale para a conversa toda, não só para as minhas mensagens ---------- */
+.convo .convo-head, .dock-win > header { background: color-mix(in srgb, var(--chat) 16%, #fff); }
+.convo .msgs, .dock-win .msgs { background: color-mix(in srgb, var(--chat) 5%, #fff); }
+.msg:not(.me):not(.rich) { background: color-mix(in srgb, var(--chat) 16%, #fff); }
+.chat-form .btn { background: var(--chat); }
+.chat-tool { color: color-mix(in srgb, var(--chat) 75%, #23485c); }
+.chat-pop.colors .reset { width: auto; height: 34px; padding: 0 12px; border-radius: 999px; background: var(--sky-3); color: var(--blue-d); font-family: var(--display); font-weight: 600; }
+
+/* ---------- Celular: nada pode passar da largura da tela ---------- */
+html, body { overflow-x: clip; }
+.pf-stats { column-gap: 22px; }
+@media (max-width: 520px) {
+  .pf-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 8px; text-align: center; }
+  .pf-card .pf-tags { justify-content: flex-start; }
+}
+.onboard header .btn { flex: none; white-space: nowrap; }

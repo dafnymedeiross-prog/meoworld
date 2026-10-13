@@ -241,7 +241,15 @@ const FACTS = [
   { id: 'f192', cat: "Fofuras", title: "Encostar o nariz", text: "Tocar focinho com focinho é cumprimento entre gatos amigos. Se ele faz isso com o seu nariz ou com o seu dedo, você entrou para o clube." },
   { id: 'f193', cat: "Fofuras", title: "Ficar de costas para você", text: "Sentar de costas não é desprezo: é confiar em você para vigiar a retaguarda enquanto ele cuida da frente." },
   { id: 'f194', cat: "Fofuras", title: "Banho de sol", text: "Gatos procuram o quadradinho de sol porque gostam de calor e porque ficar aquecido economiza energia, ainda mais durante as sonecas." },
-  { id: 'f195', cat: "Fofuras", title: "Esperar você na porta", text: "Muitos gatos aprendem a rotina da casa e reconhecem sons como seus passos, as chaves ou o carro, e por isso já estão na porta quando você chega." }
+  { id: 'f195', cat: "Fofuras", title: "Esperar você na porta", text: "Muitos gatos aprendem a rotina da casa e reconhecem sons como seus passos, as chaves ou o carro, e por isso já estão na porta quando você chega." },
+  { id: 'f197', cat: "Cuidados", title: "Gato pode tomar banho?", text: "Pode, mas quase nunca precisa: um gato saudável se limpa sozinho, e banho demais resseca a pele e estressa. Vale quando ele se suja com algo que não sai ou que seria perigoso lamber, em gatos de pelo longo embolado, em idosos ou obesos que não alcançam o corpo todo, ou por indicação do veterinário." },
+  { id: 'f198', cat: "Cuidados", title: "Como dar banho sem trauma", text: "Água morna, pouca profundidade e xampu próprio para gatos (o de humano e o de cachorro podem fazer mal). Não molhe dentro das orelhas, enxágue muito bem e seque com toalha em lugar quente. Secador só se ele tolerar, morno e de longe." },
+  { id: 'f199', cat: "Cuidados", title: "Quem precisa de banho regular", text: "O Sphynx e outros gatos sem pelo acumulam oleosidade na pele e costumam precisar de banho periódico. Para os demais, escovação e pano úmido resolvem quase tudo." },
+  { id: 'f200', cat: "Corpo", title: "Gatos trocam de unha?", text: "Trocam a “capa” da unha. A unha cresce em camadas e a de fora se solta inteira quando ele arranha, deixando casquinhas em formato de garra pela casa. É normal e é um dos motivos de eles arranharem tanto." },
+  { id: 'f201', cat: "Cuidados", title: "Unhas de gato idoso", text: "Gatos idosos arranham menos e as unhas engrossam, podendo crescer em curva até encravar na almofadinha. Vale conferir as patas de tempos em tempos e cortar só a pontinha transparente, longe da parte rosada." },
+  { id: 'f202', cat: "Corpo", title: "Gatos trocam de pelo?", text: "Sim, o tempo todo, com dois picos por ano: na primavera sai o pelo grosso do inverno e no outono cresce um novo. Quem manda é a quantidade de luz do dia, não a temperatura." },
+  { id: 'f203', cat: "Corpo", title: "Por que gato de apartamento solta pelo o ano inteiro", text: "Com luz artificial e temperatura estável, o corpo não percebe bem as estações e a troca se espalha pelo ano todo. Escovar algumas vezes por semana reduz o pelo pela casa e as bolas de pelo." },
+  { id: 'f204', cat: "Saúde", title: "Quando a queda de pelo preocupa", text: "Trocar pelo é normal; falhas, pele vermelha, feridas, coceira ou lambedura exagerada não são. Podem indicar pulgas, alergia, fungos, dor ou estresse, e pedem consulta." }
 ];
 
 // Destaques do CuriousCats ("Mais importantes"), pelo título, na ordem em que aparecem.
@@ -559,3 +567,6 @@ const SEED_POSTS = [
   { id: 'p17', cat: 'c6', caption: "Aceito sachê. Ração seca só em último caso.", likes: 189, h: 90 },
   { id: 'p18', cat: 'c15', caption: "Escovada do dia feita. Sobrou pelo para outro gato.", likes: 122, h: 110 }
 ];
+
+// Contas com acesso ao painel de Moderação (pelo nome de usuário).
+const ADMINS = ['fugishiva'];

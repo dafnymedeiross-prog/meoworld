@@ -13,6 +13,11 @@
     likedSeeds: [],
     posts: [],           // { id, mediaId, caption, ts }
     likedPosts: [],
+    onboard: false,      // lista de primeiros passos (ligada no cadastro)
+    chatColors: {},      // cor de cada conversa com gatos de demonstração
+    stickers: [],        // { id, src } criados pela pessoa
+    blocked: [],         // ids bloqueados
+    reports: [],         // denúncias registradas
     twin: null,          // { photo, emb } da foto enviada ao TwinCats
     following: [],       // ids dos gatinhos seguidos
     settings: { showOwner: true, showBirth: true, privateProfile: false, showInTwins: true, motion: true },
@@ -121,6 +126,11 @@
     gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.4-2.3 1a7.6 7.6 0 0 0-2.6-1.5L14.1 2.5H9.9l-.4 2.6A7.6 7.6 0 0 0 6.9 6.6l-2.3-1-2 3.4 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.4 2.3-1a7.6 7.6 0 0 0 2.6 1.5l.4 2.6h4.2l.4-2.6a7.6 7.6 0 0 0 2.6-1.5l2.3 1 2-3.4z"/></svg>',
     shop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    palette: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 2-2 0-1.6-1.2-2 .3-3.2 1-.8 2.7-.3 4.2-.8A4 4 0 0 0 21 11c0-4.4-4-8-9-8z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15" cy="8" r="1"/></svg>',
+    shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.500c0 4.5 3 8 7.5 9.5 4.5-1.5 7.5-5 7.5-9.500V6z"/><path d="m9 12 2.2 2.200L15.2 10"/></svg>',
+    dots: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+    sticker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3v-8z"/><path d="M14 3v4a3 3 0 0 0 3 3h4"/><path d="M8.5 14.500c1 1.3 2.2 2 3.5 2s2.5-.7 3.5-2"/></svg>',
+    clip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m20 11-8.5 8.500a5 5 0 0 1-7-7L13 4a3.5 3.5 0 0 1 5 5l-8.3 8.300a2 2 0 0 1-2.9-2.900L14.5 7"/></svg>',
     search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>'
   };
@@ -252,13 +262,110 @@
   }
   const viewAuth = () => (authView === 'login' ? viewLogin() : authView === 'cat' && pending ? viewSignup() : viewAccount());
 
+  // ---------- C(h)ats: mensagens, mídia, stickers, cor, "miaugitando" e apagar para todos ----------
+  const EMOJIS = ['😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🐱', '🐈', '🐾', '❤️', '💙', '💛', '💜', '🧡', '✨', '🎉', '😂', '🥰', '😍', '😎', '😴', '🤔', '👍', '👏', '🙏', '🔥', '🐟', '🥛', '🧶', '📦', '🌙', '☀️', '🌈'];
+  const CHAT_COLORS = ['#6aadcf', '#e0557a', '#8e7cc3', '#4caf7d', '#f2a65a', '#35789c'];
+  const BASE_STICKERS = ['😻', '🙀', '😹', '😾', '🐾', '💤'];
+  let chatUI = { id: null, panel: null }; // painel aberto (emoji, sticker ou cor) e em qual conversa
+  let botTyping = null;                   // gato de demonstração que está "miaugitando"
+
+  // Conversa com conta real (id "u:nome") fica numa chave compartilhada entre as duas contas;
+  // conversa com gato de demonstração fica no estado da própria conta.
+  const isDM = (id) => String(id).startsWith('u:');
+  const dmKey = (id) => 'meoworld:dm:' + [session, id.slice(2)].sort().join('|');
+  const meId = (id) => (isDM(id) ? session : 'me');
+  function getConvo(id) {
+    if (isDM(id)) { const c = readJSON(dmKey(id), null) || { msgs: [] }; c.typing = c.typing || {}; c.color = c.color || ''; return c; }
+    const msgs = S.chats[id] || [];
+    msgs.forEach((m, i) => { if (!m.id) m.id = 'o' + i; });
+    return { msgs, color: S.chatColors[id] || '', typing: {} };
+  }
+  function putConvo(id, c) {
+    if (isDM(id)) {
+      try { localStorage.setItem(dmKey(id), JSON.stringify(c)); }
+      catch { alert('Não foi possível salvar a conversa: o espaço deste navegador está cheio.'); }
+    } else {
+      S.chats[id] = c.msgs;
+      if (c.color) S.chatColors[id] = c.color; else delete S.chatColors[id];
+      save();
+    }
+  }
+  const preview = (m) => (!m ? 'Diga miau!' : m.deleted ? 'Mensagem apagada' : m.kind === 'image' ? '📷 Foto' : m.kind === 'video' ? '🎬 Vídeo' : m.kind === 'gif' ? 'GIF' : m.kind === 'sticker' ? 'Sticker' : m.text);
+  // Conversas da lista: gatos de demonstração com histórico e as outras contas deste navegador.
+  const chatIds = () => [...localCats().filter((c) => !isBlocked(c.id) && !blockedMe(c)).map((c) => c.id), ...Object.keys(S.chats).filter((id) => findCat(id) && !isBlocked(id))];
+
+  function msgHTML(m, id) {
+    const mine = m.from === meId(id);
+    if (m.deleted) return `<div class="msg ${mine ? 'me' : ''} gone">Mensagem apagada</div>`;
+    const body = m.kind === 'image' || m.kind === 'gif' ? `<img class="msg-media" data-media="${m.mediaId}" alt="${m.kind === 'gif' ? 'GIF enviado' : 'Foto enviada'}">`
+      : m.kind === 'video' ? `<video class="msg-media" data-media="${m.mediaId}" controls playsinline preload="metadata"></video>`
+      : m.kind === 'sticker' ? (m.src ? `<img class="msg-sticker" src="${m.src}" alt="Sticker">` : `<span class="msg-sticker emoji">${esc(m.text)}</span>`)
+      : esc(m.text);
+    return `<div class="msg ${mine ? 'me' : ''} ${m.kind && m.kind !== 'text' ? 'rich' : ''}">${body}${mine ? `<button type="button" class="msg-del" data-act="msg-del" data-id="${id}" data-m="${m.id}" aria-label="Apagar para todos" title="Apagar para todos">×</button>` : ''}</div>`;
+  }
+  // Partes da conversa, usadas tanto na página (celular) quanto na doca (computador).
+  function chatParts(id, formId, msgsId) {
+    const c = findCat(id), cv = getConvo(id);
+    const typing = isDM(id) ? Date.now() - (cv.typing[id.slice(2)] || 0) < 4000 : botTyping === id;
+    const panel = chatUI.id === id ? chatUI.panel : null;
+    const tool = (name, label, icon) => `<button type="button" class="chat-tool ${panel === name ? 'on' : ''}" data-act="chat-panel" data-id="${id}" data-m="${name}" aria-label="${label}" aria-expanded="${panel === name}">${icon}</button>`;
+    return {
+      style: cv.color ? `style="--chat:${cv.color}"` : '',
+      tools: `${tool('color', 'Cor do chat', I.palette)}<button type="button" class="chat-tool" data-act="more" data-id="${id}" aria-label="Mais opções">${I.dots}</button>`,
+      msgs: `<div class="msgs" id="${msgsId}">${cv.msgs.map((m) => msgHTML(m, id)).join('') || '<p class="empty">Diga miau para começar!</p>'}${typing ? `<div class="typing" role="status">${esc(c.catName)} está miaugitando<span aria-hidden="true">…</span></div>` : ''}</div>`,
+      panel: panel === 'emoji' ? `<div class="chat-pop emojis">${EMOJIS.map((e) => `<button type="button" data-act="chat-emoji" data-id="${id}" data-m="${e}">${e}</button>`).join('')}</div>`
+        : panel === 'sticker' ? `<div class="chat-pop stickers">${BASE_STICKERS.map((e) => `<button type="button" class="emoji" data-act="chat-sticker" data-id="${id}" data-m="e:${e}" aria-label="Sticker ${e}">${e}</button>`).join('')}${S.stickers.map((s) => `<span class="mine"><button type="button" data-act="chat-sticker" data-id="${id}" data-m="${s.id}" aria-label="Meu sticker"><img src="${s.src}" alt=""></button><button type="button" class="x" data-act="sticker-del" data-id="${id}" data-m="${s.id}" aria-label="Excluir sticker">×</button></span>`).join('')}<button type="button" class="new" data-act="sticker-new" data-id="${id}">+ Criar sticker</button></div>`
+        : panel === 'color' ? `<div class="chat-pop colors"><button type="button" class="reset ${cv.color ? '' : 'on'}" data-act="chat-color" data-id="${id}" data-m="default">Padrão</button>${CHAT_COLORS.map((col) => `<button type="button" class="${cv.color === col ? 'on' : ''}" data-act="chat-color" data-id="${id}" data-m="${col}" style="background:${col}" aria-label="Cor ${col}"></button>`).join('')}<small>${isDM(id) ? 'A cor muda para vocês dois.' : 'Cor desta conversa.'}</small></div>` : '',
+      form: `<form id="${formId}" data-id="${id}" class="chat-form">
+          ${tool('emoji', 'Emojis', '😺')}${tool('sticker', 'Stickers', I.sticker)}
+          <button type="button" class="chat-tool" data-act="chat-attach" data-id="${id}" aria-label="Enviar foto, vídeo ou GIF">${I.clip}</button>
+          <input name="text" placeholder="Escreva um miau…" maxlength="500" autocomplete="off" aria-label="Mensagem"><button class="btn small">Enviar</button></form>`
+    };
+  }
+  function sendMsg(id, m) {
+    const cv = getConvo(id);
+    cv.msgs.push({ id: uid(), from: meId(id), ts: Date.now(), ...m });
+    if (isDM(id)) delete cv.typing[session];
+    putConvo(id, cv);
+    chatUI.panel = null;
+    if (!isDM(id)) botTyping = id;
+    refreshChat(id, true);
+    if (isDM(id)) return;
+    // Resposta automática dos gatos de demonstração.
+    setTimeout(() => {
+      botTyping = null;
+      if (S.chats[id] && !isBlocked(id)) {
+        const c2 = getConvo(id);
+        c2.msgs.push({ id: uid(), from: id, kind: 'text', text: MEOW_REPLIES[Math.floor(Math.random() * MEOW_REPLIES.length)], ts: Date.now() });
+        putConvo(id, c2);
+      }
+      refreshChat(id);
+    }, 900);
+  }
+  // Entre duas abas com contas diferentes, a conversa atualiza sozinha (inclusive o "miaugitando").
+  window.addEventListener('storage', (e) => {
+    if (!session || !e.key || !e.key.startsWith('meoworld:dm:')) return;
+    const names = e.key.slice(12).split('|');
+    if (!names.includes(session)) return;
+    const other = 'u:' + names.find((n) => n !== session);
+    refreshChat(other);
+    setTimeout(() => refreshChat(other), 4200);
+  });
+  let lastTyping = 0;
+  document.addEventListener('input', (e) => {
+    const f = e.target.form;
+    if (!f || !f.classList.contains('chat-form') || e.target.name !== 'text' || !isDM(f.dataset.id) || Date.now() - lastTyping < 1500) return;
+    lastTyping = Date.now();
+    const cv = getConvo(f.dataset.id);
+    cv.typing[session] = lastTyping;
+    putConvo(f.dataset.id, cv);
+  });
+
   function chatList(activeId) {
-    const ids = Object.keys(S.chats).filter(findCat);
-    return `<ul class="chat-list">${ids.map((id) => {
-      const c = findCat(id);
-      const last = S.chats[id][S.chats[id].length - 1];
+    return `<ul class="chat-list">${chatIds().map((id) => {
+      const c = findCat(id), cv = getConvo(id);
       return `<li><a href="#/chats/${id}" class="${id === activeId ? 'on' : ''}"><span class="avatar">${catPic(c)}</span>
-        <span><b>${esc(c.catName)}</b><small>${esc(last ? last.text : 'Diga miau!')}</small></span></a></li>`;
+        <span><b>${esc(c.catName)}</b><small>${esc(preview(cv.msgs[cv.msgs.length - 1]))}</small></span></a></li>`;
     }).join('')}</ul>`;
   }
   const chatPanel = (activeId) => `<div class="chat-panel"><h2>C(h)ats</h2><p class="muted">Meow-papo entre tutores e seus gatos</p>${chatList(activeId)}</div>`;
@@ -274,22 +381,33 @@
     const dd = Math.round(h / 24);
     return dd === 1 ? 'ontem' : `há ${dd} dias`;
   }
-  // Junta os meus posts, os das outras contas deste navegador e os de demonstração.
+  function doBlock(id) {
+    if (!isBlocked(id)) S.blocked.push(id);
+    S.following = S.following.filter((x) => x !== id);
+    if (dockChat === id) dockChat = null;
+    save();
+  }
+  // Junta os meus posts, os das outras contas deste navegador e os de demonstração (menos quem está bloqueado).
   function allPosts() {
     const me = { id: 'me', catName: S.user.catName, username: S.user.username || session };
     const mine = S.posts.map((p) => ({ ...p, author: me, mine: true, likes: 0 }));
-    const locals = localCats().flatMap((c) => (readJSON(`${KEY}:${c.username}`, {}).posts || []).map((p) => ({ ...p, author: c, likes: 0 })));
-    const seeds = SEED_POSTS.map((p) => ({ id: p.id, caption: p.caption, likes: p.likes, ts: BOOT - p.h * 3600e3, author: findCat(p.cat), photo: findCat(p.cat).photo }));
+    const locals = localCats().filter((c) => !isBlocked(c.id) && !blockedMe(c)).flatMap((c) => (readJSON(`${KEY}:${c.username}`, {}).posts || []).map((p) => ({ ...p, author: c, likes: 0 })));
+    const seeds = SEED_POSTS.filter((p) => !isBlocked(p.cat) && findCat(p.cat) && !getMod().removedPosts[p.id]).map((p) => ({ id: p.id, caption: p.caption, likes: p.likes, ts: BOOT - p.h * 3600e3, author: findCat(p.cat), photo: findCat(p.cat).photo }));
     return [...mine, ...locals, ...seeds].sort((x, y) => y.ts - x.ts);
   }
   function postCard(p) {
     const c = p.author, liked = S.likedPosts.includes(p.id);
     const who = p.mine ? `<a class="avatar" href="#/perfil">${userFace()}</a>` : `<a class="avatar" href="#/gato/${c.id}">${catPic(c)}</a>`;
+    const media = p.mediaId ? `<img class="post-img" data-media="${p.mediaId}" alt="Imagem do post de ${esc(c.catName)}" loading="lazy">` : p.photo ? `<img class="post-img" src="${p.photo}" alt="Foto do post de ${esc(c.catName)}" loading="lazy">` : '';
+    const bg = safeColor(p.bg, '#fff7e6');
+    const content = p.kind === 'blog'
+      ? `<div class="blog" style="--blog-bg:${bg};--blog-ink:${inkFor(bg)};--blog-font:${PF_FONTS[p.font] || PF_FONTS.Fredoka}">${media}<h2>${esc(p.title)}</h2><div class="blog-body">${fmt(p.body)}</div></div>`
+      : `${media}${p.caption ? `<p class="post-cap">${esc(p.caption)}</p>` : ''}`;
     return `<article class="card post">
       <header>${who}<div class="grow"><a href="${p.mine ? '#/perfil' : '#/gato/' + c.id}"><b>${esc(c.catName)}</b></a><small>@${esc(c.username)} · ${timeAgo(p.ts)}</small></div>
-        ${p.mine ? `<button class="icon-btn soft" data-act="del-post" data-id="${p.id}" aria-label="Excluir post">${I.trash}</button>` : isFollowing(c.id) ? '' : followBtn(c.id)}</header>
-      ${p.mediaId ? `<img class="post-img" data-media="${p.mediaId}" alt="Foto do post de ${esc(c.catName)}" loading="lazy">` : `<img class="post-img" src="${p.photo}" alt="Foto do post de ${esc(c.catName)}" loading="lazy">`}
-      ${p.caption ? `<p class="post-cap">${esc(p.caption)}</p>` : ''}
+        ${p.mine ? `<button class="icon-btn soft" data-act="del-post" data-id="${p.id}" aria-label="Excluir post">${I.trash}</button>`
+          : `${isFollowing(c.id) ? '' : followBtn(c.id)}<button class="icon-btn soft" data-act="more" data-id="${c.id}" data-m="${p.id}" aria-label="Mais opções">${I.dots}</button>`}</header>
+      ${content}
       <footer><button class="like ${liked ? 'on' : ''}" data-act="like-post" data-id="${p.id}" aria-pressed="${liked}" aria-label="Curtir">${I.heart}<span>${p.likes + (liked ? 1 : 0)}</span></button></footer>
     </article>`;
   }
@@ -297,13 +415,13 @@
     const posts = allPosts();
     const list = feedTab === 'following' ? posts.filter((p) => p.mine || isFollowing(p.author.id)) : posts;
     return `<div class="hello"><h1 class="page-title">Miau, ${esc(S.user.catName)}!</h1><p class="page-sub">O cantinho de quem é louco por gatos.</p></div>
-      <div class="chips only-mobile"><a class="chip" href="#/compras">Guia de compras</a><a class="chip" href="#/buscar">Buscar gatinhos</a><a class="chip" href="#/config">Configurações</a></div>
+      <div class="chips only-mobile"><a class="chip" href="#/compras">Guia de compras</a><a class="chip" href="#/buscar">Buscar gatinhos</a><a class="chip" href="#/config">Configurações</a>${isAdmin() ? `<a class="chip" href="#/moderacao">Moderação${pendingReports().length ? ` (${pendingReports().length})` : ''}</a>` : ''}</div>
       <div class="feed-bar">
         <div class="tabs" role="tablist">
           <button role="tab" aria-selected="${feedTab === 'foryou'}" class="${feedTab === 'foryou' ? 'on' : ''}" data-act="feed-tab" data-id="foryou">Para você</button>
           <button role="tab" aria-selected="${feedTab === 'following'}" class="${feedTab === 'following' ? 'on' : ''}" data-act="feed-tab" data-id="following">Seguindo</button>
         </div>
-        <button class="btn small" data-act="new-post">${I.plus} Novo post</button>
+        <span class="feed-new"><button class="btn small" data-act="new-post">${I.plus} Foto</button><button class="btn small ghost" data-act="new-blog">${I.plus} Blog</button></span>
       </div>
       <div class="timeline">${list.map(postCard).join('') || `<div class="card empty">Você ainda não segue ninguém. Dê uma olhada em “Para você” ou <a href="#/buscar"><u>busque gatinhos</u></a> para seguir.</div>`}</div>`;
   }
@@ -316,7 +434,7 @@
           <button class="${t.liked ? 'on' : ''}" data-act="like-tik" data-id="${t.id}" aria-label="Curtir" aria-pressed="${!!t.liked}">${I.heart}</button>
           <button data-act="del-tik" data-id="${t.id}" aria-label="Excluir vídeo">${I.trash}</button>
         </div></article>`).join('');
-    const seeds = SEED_TIKS.map((t) => {
+    const seeds = SEED_TIKS.filter((t) => findCat(t.cat)).map((t) => {
       const c = findCat(t.cat), liked = S.likedSeeds.includes(t.id);
       return `<article class="tik demo" style="background:${t.bg}"><span class="badge">Demonstração</span>
         <div class="demo-cat">${catPic(c).replace('<rect width="100" height="100" fill="#e6f6ff"/>', '')}</div>
@@ -434,7 +552,7 @@
   }
 
   function viewTwins() {
-    const list = allCats().filter((c) => !c.local || c.inTwins).map((c) => ({ c, s: twinScore(c) })).sort((x, y) => y.s - x.s);
+    const list = visibleCats().filter((c) => !c.local || c.inTwins).map((c) => ({ c, s: twinScore(c) })).sort((x, y) => y.s - x.s);
     const byPhoto = !!S.twin;
     return `<h1 class="page-title">TwinCats</h1><p class="page-sub">Será que seu gato tem um sósia? Envie uma foto e a IA procura os gatinhos mais parecidos.</p>
       <div class="card twin-up">
@@ -461,7 +579,7 @@
         <div class="grow"><b>${esc(c.catName)}${c.local ? ' <span class="tag-real">conta real</span>' : ''}</b><span class="muted">${esc(c.breed)} · ${ageText(c.birth)}</span>
           <div class="meter"><i style="width:${s}%"></i></div></div>
         <span class="pct">${s}%</span>${s === 99 ? '<span class="twin-badge">Gêmeo perfeito!</span>' : ''}
-        ${c.local ? `<a class="btn small ghost" href="#/gato/${c.id}">Ver</a>` : `<a class="btn small" href="#/chats/${c.id}">Miau</a>`}</div>`).join('')}</div>
+        <a class="btn small" href="#/chats/${c.id}">Miau</a></div>`).join('')}</div>
       <p class="muted" style="margin-top:14px">Em modo de teste local, entram na comparação as outras contas criadas neste navegador que enviaram foto (marcadas como “conta real”) e os gatos de demonstração, com fotos em domínio público do Wikimedia Commons.</p>`;
   }
 
@@ -497,17 +615,57 @@
   }
   function viewConvo(id) {
     const c = findCat(id);
-    if (!c) return viewChats();
-    const msgs = S.chats[id] || [];
-    return `<div class="card convo">
+    if (!c || blockedMe(c)) return viewChats();
+    if (isBlocked(id)) return blockedHTML(c);
+    const p = chatParts(id, 'send', 'msgs');
+    return `<div class="card convo" ${p.style}>
       <div class="convo-head"><a class="icon-btn only-mobile" href="#/chats" aria-label="Voltar">←</a>
         <a class="avatar" href="#/gato/${id}">${catPic(c)}</a>
-        <div><b>${esc(c.catName)}</b><br><small class="muted">com ${esc(c.owner)} · conversa de demonstração</small></div></div>
-      <div class="msgs" id="msgs">${msgs.map((m) => `<div class="msg ${m.from === 'me' ? 'me' : ''}">${esc(m.text)}</div>`).join('') || '<p class="empty">Diga miau para começar!</p>'}</div>
-      <form id="send" data-id="${id}"><input name="text" placeholder="Escreva um miau…" maxlength="500" autocomplete="off" aria-label="Mensagem"><button class="btn">Enviar</button></form></div>`;
+        <div class="grow"><b>${esc(c.catName)}</b><br><small class="muted">${c.local ? 'conta real' : 'conversa de demonstração'}</small></div>${p.tools}</div>
+      ${p.msgs}${p.panel}${p.form}</div>`;
   }
 
-  // Silhueta do corpo e do rabo, em coordenadas do desenho (1040 x 332).
+  // ---------- Bloquear e denunciar ----------
+  const isBlocked = (id) => S.blocked.includes(id);
+  // Uma conta deste navegador que me bloqueou também deixa de aparecer para mim.
+  const blockedMe = (c) => !!c.local && (readJSON(`${KEY}:${c.username}`, {}).blocked || []).includes('u:' + session);
+  const visibleCats = () => allCats().filter((c) => !isBlocked(c.id) && !blockedMe(c));
+  const blockedHTML = (c) => `<div class="card empty"><p>Você bloqueou <b>${esc(c.catName)}</b> (@${esc(c.username)}). Posts, perfil e mensagens ficam escondidos.</p>
+      <p style="margin-top:14px"><button class="btn" data-act="unblock" data-id="${c.id}">Desbloquear</button></p></div>`;
+  const REPORT_REASONS = ['Spam ou golpe', 'Assédio ou ofensa', 'Conteúdo impróprio', 'Maus-tratos a animais', 'Perfil falso', 'Outro motivo'];
+
+  // ---------- Perfil personalizável (estilo blog) ----------
+  const PF_FONTS = { Fredoka: "'Fredoka', sans-serif", Pacifico: "'Pacifico', cursive", 'Baloo 2': "'Baloo 2', sans-serif", Caveat: "'Caveat', cursive",
+    'Playfair Display': "'Playfair Display', serif", Comfortaa: "'Comfortaa', sans-serif", 'Press Start 2P': "'Press Start 2P', monospace" };
+  const PF_DEFAULT = { bg: '#c9ecff', bg2: '#e6f6ff', card: '#ffffff', name: '#35789c', accent: '#6aadcf', font: 'Fredoka' };
+  const PF_PRESETS = {
+    'Algodão-doce': { bg: '#ffd6e8', bg2: '#d6e4ff', card: '#ffffff', name: '#d6478a', accent: '#d6478a', font: 'Pacifico' },
+    Noite: { bg: '#1d2440', bg2: '#3a2a5c', card: '#262d4d', name: '#ffd76a', accent: '#8ea2ff', font: 'Comfortaa' },
+    Floresta: { bg: '#cfe8c9', bg2: '#f1f0d0', card: '#fffdf4', name: '#2f6b3f', accent: '#4c9a5f', font: 'Baloo 2' },
+    Jornal: { bg: '#f3efe6', bg2: '#e2dac8', card: '#fffdf8', name: '#22201c', accent: '#8a3b2a', font: 'Playfair Display' },
+    Caderno: { bg: '#fff3c4', bg2: '#ffd9b0', card: '#fffef6', name: '#b0562b', accent: '#e08a3c', font: 'Caveat' },
+    Fliperama: { bg: '#12122b', bg2: '#33124a', card: '#1c1c3a', name: '#5df2c4', accent: '#ff5fa2', font: 'Press Start 2P' }
+  };
+  const safeColor = (c, d) => (/^#[0-9a-f]{6}$/i.test(c || '') ? c : d);
+  const lum = (hex) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)); return (r * 299 + g * 587 + b * 114) / 1000; };
+  const inkFor = (bg) => (lum(bg) > 150 ? '#2b3f4c' : '#f3f6fa');
+  function themeStyle(t) {
+    if (!t) return '';
+    const card = safeColor(t.card, PF_DEFAULT.card), accent = safeColor(t.accent, PF_DEFAULT.accent);
+    return `--pf-bg:${safeColor(t.bg, PF_DEFAULT.bg)};--pf-bg2:${safeColor(t.bg2, PF_DEFAULT.bg2)};--pf-card:${card};--pf-ink:${inkFor(card)};--pf-name:${safeColor(t.name, PF_DEFAULT.name)};--pf-accent:${accent};--pf-on-accent:${lum(accent) > 165 ? '#2b3f4c' : '#ffffff'};--pf-font:${PF_FONTS[t.font] || PF_FONTS.Fredoka}`;
+  }
+  // Formatação simples dos posts de blog: "# título", "> citação", **negrito** e *itálico*.
+  function fmt(text) {
+    const inline = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>');
+    return String(text).split(/\n{2,}/).map((blk) => {
+      const b = blk.trim();
+      if (!b) return '';
+      if (b.startsWith('# ')) return `<h3>${inline(b.slice(2))}</h3>`;
+      if (b.startsWith('> ')) return `<blockquote>${inline(b.replace(/^> ?/gm, '')).replace(/\n/g, '<br>')}</blockquote>`;
+      return `<p>${inline(b).replace(/\n/g, '<br>')}</p>`;
+    }).join('');
+  }
+
   // PerfilCat: capa retangular; a foto é recortada em formato de cabeça de gato (com orelhas) e
   // abre um vão na capa e no cartão por onde aparece o fundo da página.
   function profileHTML(p, face, mine, action, stats) {
@@ -527,26 +685,52 @@
         <div class="pf-stats">${stats.map(([n, label]) => `<div><b>${n}</b><span>${label}</span></div>`).join('')}</div>
       </div></div></section>`;
   }
+  // ---------- Primeiros passos (lista de tarefas depois do cadastro) ----------
+  function onboardHTML() {
+    if (!S.onboard) return '';
+    const steps = [
+      ['Colocar uma biografia', !!S.user.bio, '<button class="btn small" data-act="edit-profile">Escrever</button>'],
+      ['Colocar foto no perfil', !!S.user.photo, '<button class="btn small" data-act="edit-profile">Escolher</button>'],
+      ['Colocar uma capa', !!S.user.cover, '<button class="btn small" data-act="edit-profile">Escolher</button>'],
+      ['Fazer a primeira postagem', S.posts.length > 0, '<button class="btn small" data-act="new-post">Postar</button>'],
+      ['Seguir o primeiro gatinho', S.following.filter(findCat).length > 0, '<a class="btn small" href="#/buscar">Buscar</a>']
+    ];
+    const done = steps.filter((s) => s[1]).length;
+    return `<section class="card onboard" aria-label="Primeiros passos">
+      <header><div><h2>${done === steps.length ? 'Perfil completo!' : 'Primeiros passos'}</h2>
+        <p class="muted">${done === steps.length ? `${esc(S.user.catName)} está pronto(a) para ronronar por aí.` : `Deixe o perfil de ${esc(S.user.catName)} com a carinha dele(a). ${done} de ${steps.length} feitos.`}</p></div>
+        <button class="btn small ghost" data-act="onboard-close">${done === steps.length ? 'Fechar' : 'Agora não'}</button></header>
+      <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${steps.length}" aria-valuenow="${done}"><i style="width:${(done / steps.length) * 100}%"></i></div>
+      <ul>${steps.map(([label, ok, action]) => `<li class="${ok ? 'ok' : ''}"><span class="tick" aria-hidden="true">${ok ? '✓' : ''}</span><span class="grow">${label}${ok ? '<span class="sr"> (feito)</span>' : ''}</span>${ok ? '' : action}</li>`).join('')}</ul>
+    </section>`;
+  }
+
+  const pfPage = (theme, inner) => `<div class="pf-page ${theme ? 'themed' : ''}" style="${themeStyle(theme)}">${inner}</div>`;
+  const postsSection = (list, empty) => `<h2 class="section-title">Posts</h2>${list.length ? `<div class="timeline">${list.map(postCard).join('')}</div>` : `<div class="card empty">${empty}</div>`}`;
   function viewProfile() {
     const albums = S.albums.slice(0, 4).map((a) => `<a class="album" href="#/catbooks/${a.id}"><div class="cover">${a.items[0] ? `<img data-media="${a.items[0]}" alt="">` : I.book}</div><b>${esc(a.name)}</b></a>`).join('');
     const photos = S.albums.reduce((n, a) => n + a.items.length, 0);
-    return `${profileHTML({ ...S.user, owner: S.settings.showOwner ? S.user.owner : '', hideBirth: !S.settings.showBirth }, S.user.photo ? userFace() : catFace(S.user.coat), true,
+    return pfPage(S.user.theme, `${profileHTML({ ...S.user, owner: S.settings.showOwner ? S.user.owner : '', hideBirth: !S.settings.showBirth }, S.user.photo ? userFace() : catFace(S.user.coat), true,
         `<span class="pf-actions"><button class="btn" data-act="edit-profile">Editar perfil</button><a class="icon-btn soft only-mobile" href="#/config" aria-label="Configurações">${I.gear}</a></span>`,
         [[S.posts.length, S.posts.length === 1 ? 'post' : 'posts'], [localFollowers('u:' + session), 'seguidores'], [S.following.filter(findCat).length, 'seguindo'], [S.albums.length, S.albums.length === 1 ? 'álbum' : 'álbuns'], [photos, photos === 1 ? 'foto' : 'fotos'], [S.tiks.length, S.tiks.length === 1 ? 'vídeo' : 'vídeos']])}
+      ${onboardHTML()}
+      ${postsSection(allPosts().filter((p) => p.mine), 'Seus posts aparecem aqui. <button class="link" data-act="new-post">Criar o primeiro</button>')}
       <h2 class="section-title">CatBooks</h2>
-      ${albums ? `<div class="grid">${albums}</div>` : '<div class="card empty">Seus álbuns aparecem aqui. <a href="#/catbooks"><u>Criar um álbum</u></a></div>'}`;
+      ${albums ? `<div class="grid">${albums}</div>` : '<div class="card empty">Seus álbuns aparecem aqui. <a href="#/catbooks"><u>Criar um álbum</u></a></div>'}`);
   }
   const isFollowing = (id) => S.following.includes(id);
   const followBtn = (id, small = true) => `<button class="btn ${small ? 'small' : ''} ${isFollowing(id) ? 'ghost' : ''}" data-act="follow" data-id="${id}" aria-pressed="${isFollowing(id)}">${isFollowing(id) ? 'Seguindo' : 'Seguir'}</button>`;
 
   function viewCat(id) {
     const c = findCat(id);
-    if (!c) return viewHome();
+    if (!c || blockedMe(c)) return viewHome();
+    if (isBlocked(id)) return blockedHTML(c);
     const followers = c.local ? localFollowers(c.id) : c.followers;
-    return `${profileHTML(c, c.photo ? catPic(c) : catFace(c.coat, c.eyes), false,
-        `<span class="pf-actions">${followBtn(c.id, false)}${c.local ? '' : `<a class="btn ghost" href="#/chats/${c.id}">Miau</a>`}</span>`,
+    return pfPage(c.theme, `${profileHTML(c, c.photo ? catPic(c) : catFace(c.coat, c.eyes), false,
+        `<span class="pf-actions">${followBtn(c.id, false)}<a class="btn ghost" href="#/chats/${c.id}">Miau</a><button class="icon-btn soft" data-act="more" data-id="${c.id}" aria-label="Mais opções">${I.dots}</button></span>`,
         [[followers + (isFollowing(c.id) ? 1 : 0), 'seguidores'], [twinScore(c) + '%', 'gêmeo seu']])}
-      <p class="muted" style="margin-top:12px">${c.local ? 'Conta criada neste navegador (modo de teste local).' : `Perfil de demonstração.${c.credit ? ` Foto: ${esc(c.credit.by)}, ${esc(c.credit.license)}, via <a href="${esc(c.credit.url)}" target="_blank" rel="noopener noreferrer"><u>Wikimedia Commons</u></a>.` : ''}`}</p>`;
+      ${postsSection(allPosts().filter((p) => !p.mine && p.author.id === c.id), 'Nenhum post ainda.')}
+      <p class="muted" style="margin-top:12px">${c.local ? 'Conta criada neste navegador (modo de teste local).' : `Perfil de demonstração.${c.credit ? ` Foto: ${esc(c.credit.by)}, ${esc(c.credit.license)}, via <a href="${esc(c.credit.url)}" target="_blank" rel="noopener noreferrer"><u>Wikimedia Commons</u></a>.` : ''}`}</p>`);
   }
 
   // ---- Buscar gatinhos pelo @usuário, nome do gato ou do(a) dono(a) ----
@@ -560,11 +744,11 @@
   function searchResults() {
     const q = plain(searchQ.trim().replace(/^@/, ''));
     if (!q) {
-      const mine = allCats().filter((c) => isFollowing(c.id)), rest = allCats().filter((c) => !isFollowing(c.id));
+      const mine = visibleCats().filter((c) => isFollowing(c.id)), rest = visibleCats().filter((c) => !isFollowing(c.id));
       return `${mine.length ? `<h2 class="section-title">Você segue</h2><div class="list">${mine.map(catRow).join('')}</div>` : ''}
         ${rest.length ? `<h2 class="section-title">Sugestões</h2><div class="list">${rest.map(catRow).join('')}</div>` : ''}`;
     }
-    const hits = allCats().filter((c) => [c.username, c.catName, c.owner].some((v) => plain(v).includes(q)));
+    const hits = visibleCats().filter((c) => [c.username, c.catName, c.owner].some((v) => plain(v).includes(q)));
     return hits.length ? `<div class="list" style="margin-top:14px">${hits.map(catRow).join('')}</div>`
       : `<div class="card empty" style="margin-top:14px">Nenhum gatinho encontrado para “${esc(searchQ.trim())}”.</div>`;
   }
@@ -616,6 +800,11 @@
         <section class="card"><h2>Aparência</h2>
           <label class="switch-row"><span><b>Fundo animado</b><small>Desligue para deixar o degradê do fundo parado.</small></span><input type="checkbox" role="switch" data-act="set" data-id="motion" ${S.settings.motion ? 'checked' : ''}></label>
         </section>
+        <section class="card"><h2>Bloqueios e denúncias</h2>
+          ${S.blocked.filter(findCat).length ? `<ul class="plain-list">${S.blocked.filter(findCat).map((id) => { const c = findCat(id); return `<li><span class="avatar">${catPic(c)}</span><span class="grow"><b>${esc(c.catName)}</b><small>@${esc(c.username)}</small></span><button class="btn small ghost" data-act="unblock" data-id="${id}">Desbloquear</button></li>`; }).join('')}</ul>` : '<p>Você não bloqueou ninguém.</p>'}
+          ${S.reports.length ? `<p style="margin-top:12px"><b>${S.reports.length}</b> ${S.reports.length === 1 ? 'denúncia registrada' : 'denúncias registradas'}:</p><ul class="plain-list small">${S.reports.slice(-5).reverse().map((r) => `<li><span class="grow">${esc(r.reason)}${r.post ? ' (post)' : ''} · @${esc((findCat(r.target) || {}).username || 'conta removida')}<small>${timeAgo(r.ts)}</small></span></li>`).join('')}</ul>` : ''}
+          <p class="muted" style="margin:10px 0 0">Para bloquear ou denunciar, use o botão ⋯ no perfil, no post ou na conversa. Em modo de teste local, as denúncias ficam guardadas só neste navegador.</p>
+        </section>
         <section class="card"><h2>Armazenamento</h2>
           <p>Em modo de teste local, tudo fica guardado neste navegador. Em uso: <b>${storageUsed()}</b> de cerca de 5 MB (contas: ${Object.keys(accounts).length}). Fotos de perfil e capas são o que mais ocupa.</p>
         </section>
@@ -648,6 +837,63 @@
       <p class="muted" style="margin-top:14px">Preços pesquisados em lojas online em ${SHOP.date}. Mudam por loja, região e promoção: use como referência. Os rankings consultados são de sites de recomendação, não de laboratórios.</p>`;
   }
 
+  // ---------- Moderação (painel da administradora, em modo de teste local) ----------
+  // As decisões ficam numa chave global: valem para todas as contas deste navegador.
+  const MODKEY = 'meoworld:mod';
+  const getMod = () => Object.assign({ handled: {}, suspended: {}, removedPosts: {} }, readJSON(MODKEY, {}));
+  const putMod = (m) => localStorage.setItem(MODKEY, JSON.stringify(m));
+  const isAdmin = () => typeof ADMINS !== 'undefined' && ADMINS.includes(session);
+  const accountState = (name) => (name === session ? S : readJSON(`${KEY}:${name}`, {}));
+  // Denúncias de todas as contas deste navegador, da mais nova para a mais antiga.
+  const allReports = () => Object.keys(accounts).flatMap((name) => (accountState(name).reports || []).map((r) => ({ ...r, by: name }))).sort((x, y) => y.ts - x.ts);
+  const pendingReports = () => { const m = getMod(); return allReports().filter((r) => !m.handled[r.id]); };
+  // Dados de qualquer conta ou gato, mesmo suspenso (só a moderação usa).
+  function anyCat(id) {
+    if (isDM(id)) { const u = accountState(id.slice(2)).user; return u ? { id, local: true, username: id.slice(2), catName: u.catName, coat: u.coat, photo: u.photo || '' } : null; }
+    return COMMUNITY.find((c) => c.id === id) || null;
+  }
+  function findPost(postId) {
+    const seed = SEED_POSTS.find((p) => p.id === postId);
+    if (seed) return { post: { ...seed, photo: (COMMUNITY.find((c) => c.id === seed.cat) || {}).photo }, owner: '', seed: true };
+    for (const name of Object.keys(accounts)) {
+      const post = (accountState(name).posts || []).find((p) => p.id === postId);
+      if (post) return { post, owner: name };
+    }
+    return null;
+  }
+  function reportCard(r, done) {
+    const c = anyCat(r.target), found = r.post ? findPost(r.post) : null, m = getMod();
+    const removed = r.post && (!found || m.removedPosts[r.post]);
+    const suspended = !!m.suspended[isDM(r.target) ? r.target.slice(2) : r.target];
+    const p = found && found.post;
+    return `<article class="card mod-card">
+      <header><span class="avatar">${c ? catPic(c) : ''}</span><div class="grow"><b>${esc(r.reason)}</b>
+        <small>${r.post ? 'Post de' : 'Perfil de'} ${c ? `${esc(c.catName)} (@${esc(c.username)})` : 'conta removida'} · denunciado por @${esc(r.by)} · ${timeAgo(r.ts)}</small></div>
+        ${done ? `<span class="tag-done">${esc(done.action)}</span>` : ''}</header>
+      ${r.details ? `<p class="mod-details">“${esc(r.details)}”</p>` : ''}
+      ${r.post ? (removed ? '<p class="muted">O post já foi removido.</p>' : `<div class="mod-post">${p.mediaId ? `<img data-media="${p.mediaId}" alt="">` : p.photo ? `<img src="${p.photo}" alt="">` : ''}<p>${p.kind === 'blog' ? `<b>${esc(p.title)}</b><br>${esc(String(p.body).slice(0, 160))}` : esc(p.caption || '(sem legenda)')}</p></div>`) : ''}
+      ${suspended ? '<p class="muted">Esta conta está suspensa.</p>' : ''}
+      ${done ? '' : `<div class="actions">
+        ${r.post && !removed ? `<button class="btn small danger" data-act="mod-remove" data-id="${r.id}">Remover post</button>` : ''}
+        ${c && !suspended && r.target !== 'u:' + session ? `<button class="btn small danger" data-act="mod-suspend" data-id="${r.id}">Suspender conta</button>` : ''}
+        <button class="btn small ghost" data-act="mod-dismiss" data-id="${r.id}">Arquivar sem ação</button>
+      </div>`}</article>`;
+  }
+  function viewMod() {
+    if (!isAdmin()) return viewHome();
+    const m = getMod(), all = allReports();
+    const pending = all.filter((r) => !m.handled[r.id]), handled = all.filter((r) => m.handled[r.id]);
+    const susp = Object.keys(m.suspended);
+    return `<h1 class="page-title">Moderação</h1><p class="page-sub">Denúncias recebidas e ações da administradora.</p>
+      <h2 class="section-title">Pendentes (${pending.length})</h2>
+      <div class="list">${pending.map((r) => reportCard(r)).join('') || '<div class="card empty">Nenhuma denúncia pendente. Tudo em paz no MEOWorld.</div>'}</div>
+      <h2 class="section-title">Contas suspensas (${susp.length})</h2>
+      ${susp.length ? `<div class="card"><ul class="plain-list">${susp.map((k) => { const c = anyCat(COMMUNITY.some((x) => x.id === k) ? k : 'u:' + k); return `<li><span class="avatar">${c ? catPic(c) : ''}</span><span class="grow"><b>${c ? esc(c.catName) : esc(k)}</b><small>@${esc(c ? c.username : k)} · suspensa ${timeAgo(m.suspended[k])}</small></span><button class="btn small ghost" data-act="mod-restore" data-id="${esc(k)}">Reativar</button></li>`; }).join('')}</ul></div>` : '<div class="card empty">Nenhuma conta suspensa.</div>'}
+      <h2 class="section-title">Resolvidas (${handled.length})</h2>
+      <div class="list">${handled.slice(0, 20).map((r) => reportCard(r, m.handled[r.id])).join('') || '<div class="card empty">Nada resolvido ainda.</div>'}</div>
+      <p class="muted" style="margin-top:14px">Em modo de teste local, o painel só enxerga denúncias feitas neste navegador. Suspender impede o login da conta e a esconde de todos; remover post o apaga da timeline.</p>`;
+  }
+
   // ---------- Roteamento ----------
   const NAV = [['', 'Início', I.home], ['tikcats', 'TikCats', I.tik], ['catbooks', 'CatBooks', I.book], ['twincats', 'TwinCats', I.twin], ['curiouscats', 'Curious', I.curious]];
 
@@ -659,41 +905,48 @@
 
   function renderDock(clearDraft = false) {
     if (!session || !S.user) { dock.innerHTML = ''; dockOpen = false; dockChat = null; return; }
-    const old = dock.querySelector('#dock-send input');
+    const old = dock.querySelector('#dock-send input[name=text]');
     const draft = old && !clearDraft ? old.value : '';
     const focused = !!old && document.activeElement === old;
-    const c = dockChat && findCat(dockChat);
-    const win = c ? `<section class="dock-win" aria-label="Conversa com ${esc(c.catName)}">
+    const open = dockChat && findCat(dockChat);
+    const c = open && !isBlocked(dockChat) && !blockedMe(open) ? open : null;
+    let win = '';
+    if (c) {
+      const p = chatParts(c.id, 'dock-send', 'dock-msgs');
+      win = `<section class="dock-win" ${p.style} aria-label="Conversa com ${esc(c.catName)}">
         <header><a class="avatar" href="#/gato/${c.id}">${catPic(c)}</a>
-          <div class="grow"><b>${esc(c.catName)}</b><small>com ${esc(c.owner)} · demonstração</small></div>
+          <div class="grow"><b>${esc(c.catName)}</b><small>${c.local ? 'conta real' : 'demonstração'}</small></div>${p.tools}
           <button class="dock-x" data-act="dock-close" aria-label="Fechar conversa">×</button></header>
-        <div class="msgs" id="dock-msgs">${(S.chats[c.id] || []).map((m) => `<div class="msg ${m.from === 'me' ? 'me' : ''}">${esc(m.text)}</div>`).join('') || '<p class="empty">Diga miau para começar!</p>'}</div>
-        <form id="dock-send" data-id="${c.id}"><input name="text" placeholder="Escreva um miau…" maxlength="500" autocomplete="off" aria-label="Mensagem"><button class="btn small">Enviar</button></form>
-      </section>` : '';
-    const ids = Object.keys(S.chats).filter(findCat);
+        ${p.msgs}${p.panel}${p.form}</section>`;
+    }
+    const ids = chatIds();
+
     dock.innerHTML = `${win}<section class="dock-list">
         <button class="dock-bar" data-act="dock-toggle" aria-expanded="${dockOpen}"><span class="avatar">${userFace()}</span><b>C(h)ats</b><span class="dock-chev" aria-hidden="true">${dockOpen ? '▾' : '▴'}</span></button>
         ${dockOpen ? `<p class="muted">Meow-papo entre tutores e seus gatos</p><ul class="chat-list">${ids.map((id) => {
-          const k = findCat(id), last = S.chats[id][S.chats[id].length - 1];
-          return `<li><a href="#/chats/${id}" class="${id === dockChat ? 'on' : ''}"><span class="avatar">${catPic(k)}</span><span><b>${esc(k.catName)}</b><small>${esc(last ? last.text : 'Diga miau!')}</small></span></a></li>`;
+          const k = findCat(id), kc = getConvo(id), last = kc.msgs[kc.msgs.length - 1];
+          return `<li><a href="#/chats/${id}" class="${id === dockChat ? 'on' : ''}"><span class="avatar">${catPic(k)}</span><span><b>${esc(k.catName)}</b><small>${esc(preview(last))}</small></span></a></li>`;
         }).join('')}</ul>` : ''}
       </section>`;
     const m = dock.querySelector('#dock-msgs');
     if (m) m.scrollTop = m.scrollHeight;
-    const input = dock.querySelector('#dock-send input');
+    hydrate(dock);
+    const input = dock.querySelector('#dock-send input[name=text]');
     if (input) { input.value = draft; if (focused || clearDraft) input.focus(); }
   }
   function openDockChat(id) {
+    const c = findCat(id);
+    if (!c || isBlocked(id) || blockedMe(c)) return;
     dockChat = id; renderDock();
-    dock.querySelector('#dock-send input')?.focus();
+    dock.querySelector('#dock-send input[name=text]')?.focus();
   }
   // Atualiza a conversa onde ela estiver aberta (página no celular, doca no computador).
   function refreshChat(id, clearDraft = false) {
     const page = document.querySelector(`#send[data-id="${id}"]`);
     if (page) {
-      const input = page.querySelector('input'), draft = clearDraft ? '' : input.value, focused = document.activeElement === input;
+      const input = page.querySelector('input[name=text]'), draft = clearDraft ? '' : input.value, focused = document.activeElement === input;
       render();
-      const i = document.querySelector('#send input');
+      const i = document.querySelector('#send input[name=text]');
       if (i) { i.value = draft; if (focused || clearDraft) i.focus(); }
     } else renderDock(clearDraft && dockChat === id);
   }
@@ -701,33 +954,39 @@
   // ---------- Teste local: as outras contas deste navegador aparecem como gatinhos de verdade ----------
   // Sem servidor, "outros usuários" são as demais contas criadas neste mesmo navegador.
   function localCats() {
-    return Object.keys(accounts).filter((name) => name !== session).map((name) => {
+    const sus = getMod().suspended;
+    return Object.keys(accounts).filter((name) => name !== session && !sus[name]).map((name) => {
       const st = readJSON(`${KEY}:${name}`, {}), u = st.user;
       if (!u) return null;
       const cfg = Object.assign(defaults().settings, st.settings);
       const twin = cfg.showInTwins && st.twin ? st.twin : null;
       return { id: 'u:' + name, local: true, username: name, catName: u.catName, owner: cfg.showOwner ? u.owner : '', breed: u.breed, gender: u.gender,
-        birth: u.birth, hideBirth: !cfg.showBirth, coat: u.coat, bio: u.bio, cover: u.cover, photo: u.photo || (twin && twin.photo) || '', emb: twin && twin.emb, inTwins: !!twin };
+        birth: u.birth, hideBirth: !cfg.showBirth, coat: u.coat, bio: u.bio, cover: u.cover, theme: u.theme || null, photo: u.photo || (twin && twin.photo) || '', emb: twin && twin.emb, inTwins: !!twin };
     }).filter(Boolean);
   }
-  const allCats = () => [...localCats(), ...COMMUNITY];
+  const allCats = () => { const sus = getMod().suspended; return [...localCats(), ...COMMUNITY.filter((c) => !sus[c.id])]; };
   // Quantas contas deste navegador seguem o gatinho com esse id.
   const localFollowers = (id) => Object.keys(accounts).filter((name) => name !== session && (readJSON(`${KEY}:${name}`, {}).following || []).includes(id)).length;
 
   // "#Minha Tag!" -> "#MinhaTag": sem espaços nem símbolos, sempre com # na frente.
-  const cleanTag = (t) => { const w = String(t).replace(/[^p{L}p{N}_]/gu, ''); return w ? '#' + w.slice(0, 28) : ''; };
+  const cleanTag = (t) => { const w = String(t).replace(/[^\p{L}\p{N}_]/gu, ''); return w ? '#' + w.slice(0, 28) : ''; };
 
   const applyPrefs = () => document.body.classList.toggle('no-motion', !!session && !S.settings.motion);
 
   function render() {
     applyPrefs();
     renderDock();
-    if (!session || !S.user) { app.innerHTML = viewAuth(); return; }
+    if (!session || !S.user) { document.body.classList.remove('page-themed'); document.body.style.cssText = ''; app.innerHTML = viewAuth(); return; }
     const [route = '', arg] = location.hash.replace(/^#\/?/, '').split('/');
     const views = {
       '': viewHome, tikcats: viewTik, catbooks: () => (arg ? viewAlbum(arg) : viewBooks()), twincats: viewTwins,
-      curiouscats: viewCurious, chats: () => (arg ? viewConvo(arg) : viewChats()), perfil: viewProfile, compras: viewShop, buscar: viewSearch, config: viewSettings, gato: () => viewCat(arg)
+      curiouscats: viewCurious, chats: () => (arg ? viewConvo(arg) : viewChats()), perfil: viewProfile, compras: viewShop, buscar: viewSearch, config: viewSettings, moderacao: viewMod, gato: () => viewCat(arg)
     };
+    // Dentro de um perfil personalizado, as cores valem para o fundo da página inteira.
+    const seen = route === 'gato' ? findCat(arg) : null;
+    const pageTheme = route === 'perfil' ? S.user.theme : seen && !isBlocked(arg) && !blockedMe(seen) ? seen.theme : null;
+    document.body.classList.toggle('page-themed', !!pageTheme);
+    document.body.style.cssText = pageTheme ? themeStyle(pageTheme) : '';
     const view = (views[route] || viewHome)();
     app.innerHTML = `<div class="shell">
       <header class="topbar"><a href="#/">${LOGO}</a>
@@ -737,6 +996,7 @@
         <a href="#/compras" class="only-desktop ${route === 'compras' ? 'on' : ''}" ${route === 'compras' ? 'aria-current="page"' : ''}>${I.shop}<span>Compras</span></a>
         <a href="#/buscar" class="only-desktop ${route === 'buscar' ? 'on' : ''}" ${route === 'buscar' ? 'aria-current="page"' : ''}>${I.search}<span>Buscar</span></a>
         <a href="#/chats" class="only-desktop">${I.chat}<span>C(h)ats</span></a>
+        ${isAdmin() ? `<a href="#/moderacao" class="only-desktop ${route === 'moderacao' ? 'on' : ''}" ${route === 'moderacao' ? 'aria-current="page"' : ''}>${I.shield}<span>Moderação${pendingReports().length ? ` <i class="badge-n">${pendingReports().length}</i>` : ''}</span></a>` : ''}
         <a href="#/config" class="nav-cfg only-desktop ${route === 'config' ? 'on' : ''}" ${route === 'config' ? 'aria-current="page"' : ''}>${I.gear}<span>Configurações</span></a>
         <a href="#/perfil" class="nav-me only-desktop ${route === 'perfil' ? 'on' : ''}" ${route === 'perfil' ? 'aria-current="page"' : ''}><span class="avatar">${userFace()}</span><span><b>${esc(S.user.catName)}</b><small>@${esc(S.user.username || 'perfil')}</small></span></a></nav>
       <main class="main">${view}</main></div>`;
@@ -753,6 +1013,7 @@
 
   function showEdit() {
     const u = draft;
+    const th = { ...PF_DEFAULT, ...(u.theme || {}) };
     const mediaRow = (kind, title, thumb) => `<div class="media-row">${thumb}<div><b>${title}</b><div class="actions">
         <button type="button" class="btn small ghost" data-act="pick-${kind}">${u[kind] ? 'Trocar' : 'Escolher imagem'}</button>
         ${u[kind] ? `<button type="button" class="btn small danger" data-act="clear-${kind}">Remover</button>` : ''}</div></div></div>`;
@@ -768,12 +1029,30 @@
       <label class="field"><span>Gênero</span><span class="plain"><select name="gender">${['Fêmea', 'Macho'].map((g) => `<option ${g === u.gender ? 'selected' : ''}>${g}</option>`).join('')}</select></span></label>
       <div class="field"><span>Pelagem (cor do gato no perfil)</span><div class="swatches">${COATS.map((c) => `<label title="${c.name}"><input type="radio" name="coat" value="${c.color}" ${c.color === u.coat ? 'checked' : ''} aria-label="${c.name}"><i style="background:${c.color}"></i></label>`).join('')}</div></div>
       <label class="field"><span>Bio</span><span class="plain"><textarea name="bio" maxlength="140" rows="2">${esc(u.bio || '')}</textarea></span></label>
+      <fieldset class="theme-edit"><legend>Aparência do perfil</legend>
+        <p class="muted">Deixe o perfil com a cara do seu gatinho. Quem visitar vê do mesmo jeito.</p>
+        <div class="chips theme-presets"><button type="button" class="chip ${u.theme ? '' : 'on'}" data-act="theme-preset" data-id="default">Padrão</button>${Object.keys(PF_PRESETS).map((n) => `<button type="button" class="chip" data-act="theme-preset" data-id="${n}">${n}</button>`).join('')}</div>
+        <label class="field"><span>Fonte do nome</span><span class="plain"><select name="t_font">${Object.keys(PF_FONTS).map((n) => `<option ${n === th.font ? 'selected' : ''}>${n}</option>`).join('')}</select></span></label>
+        <div class="color-grid">
+          <label>Cor do nome<input type="color" name="t_name" value="${th.name}"></label>
+          <label>Destaque<input type="color" name="t_accent" value="${th.accent}"></label>
+          <label>Cartões<input type="color" name="t_card" value="${th.card}"></label>
+          <label>Fundo 1<input type="color" name="t_bg" value="${th.bg}"></label>
+          <label>Fundo 2<input type="color" name="t_bg2" value="${th.bg2}"></label>
+        </div>
+        <div class="pf-page themed theme-preview" id="theme-preview" style="${themeStyle(th)}"><div class="card"><b class="tp-name">${esc(u.catName)}</b><span class="btn small">Seguir</span></div></div>
+      </fieldset>
       <p class="error" role="alert"></p>
       <div class="actions"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Salvar</button></div></form>`);
   }
   // O que foi digitado vai para o rascunho, para não se perder ao abrir o ajuste de imagem.
   document.addEventListener('input', (e) => {
-    if (draft && e.target.form && e.target.form.id === 'profile-form' && e.target.name) draft[e.target.name] = e.target.value;
+    if (!(draft && e.target.form && e.target.form.id === 'profile-form' && e.target.name)) return;
+    if (e.target.name.startsWith('t_')) {
+      draft.theme = { ...PF_DEFAULT, ...(draft.theme || {}), [e.target.name.slice(2)]: e.target.value };
+      const pv = document.getElementById('theme-preview');
+      if (pv) pv.style.cssText = themeStyle(draft.theme);
+    } else draft[e.target.name] = e.target.value;
   });
 
   async function startCrop(kind) {
@@ -935,6 +1214,131 @@
       S.posts = S.posts.filter((x) => x.id !== id);
       save(); await delMedia(p.mediaId); render();
     },
+    // ----- chat -----
+    'chat-panel': (id, el) => { const name = el.dataset.m; chatUI = { id, panel: chatUI.id === id && chatUI.panel === name ? null : name }; refreshChat(id); },
+    'chat-emoji': (id, el) => {
+      const input = document.querySelector(`form.chat-form[data-id="${id}"] input[name=text]`);
+      if (input) { input.value += el.dataset.m; input.focus(); }
+    },
+    'chat-color': (id, el) => { const cv = getConvo(id); cv.color = el.dataset.m === 'default' ? '' : el.dataset.m; putConvo(id, cv); chatUI.panel = null; refreshChat(id); },
+    'chat-sticker': (id, el) => {
+      const key = el.dataset.m;
+      if (key.startsWith('e:')) return sendMsg(id, { kind: 'sticker', text: key.slice(2) });
+      const s = S.stickers.find((x) => x.id === key);
+      if (s) sendMsg(id, { kind: 'sticker', src: s.src });
+    },
+    'sticker-new': async (id) => {
+      if (S.stickers.length >= 12) { alert('Você já tem 12 stickers. Exclua um para criar outro.'); return; }
+      const [f] = await pickFile('image/*');
+      if (!f) return;
+      try {
+        const big = await shrink(f, 600), side = Math.min(big.width, big.height);
+        const cv = document.createElement('canvas');
+        cv.width = cv.height = 160;
+        cv.getContext('2d').drawImage(big, (big.width - side) / 2, (big.height - side) / 2, side, side, 0, 0, 160, 160);
+        let src = cv.toDataURL('image/webp', 0.85);
+        if (!src.startsWith('data:image/webp')) src = cv.toDataURL('image/png');
+        S.stickers.push({ id: uid(), src }); save();
+        chatUI = { id, panel: 'sticker' }; refreshChat(id);
+      } catch { alert('Não consegui criar o sticker com essa imagem.'); }
+    },
+    'sticker-del': (id, el) => { S.stickers = S.stickers.filter((x) => x.id !== el.dataset.m); save(); refreshChat(id); },
+    'chat-attach': async (id) => {
+      const [f] = await pickFile('image/*,video/*');
+      if (!f) return;
+      try {
+        if (f.type.startsWith('video/')) {
+          if (f.size > 40 * 1024 * 1024) { alert('Vídeo muito grande (máximo 40 MB).'); return; }
+          sendMsg(id, { kind: 'video', mediaId: await putMedia(f) });
+        } else if (f.type === 'image/gif') {
+          if (f.size > 8 * 1024 * 1024) { alert('GIF muito grande (máximo 8 MB).'); return; }
+          sendMsg(id, { kind: 'gif', mediaId: await putMedia(f) });
+        } else {
+          const cv = await shrink(f, 1280);
+          const blob = await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.85));
+          sendMsg(id, { kind: 'image', mediaId: await putMedia(blob) });
+        }
+      } catch { alert('Não consegui enviar esse arquivo.'); }
+    },
+    'msg-del': async (id, el) => {
+      if (!confirm(isDM(id) ? 'Apagar esta mensagem para todos?' : 'Apagar esta mensagem?')) return;
+      const cv = getConvo(id), m = cv.msgs.find((x) => x.id === el.dataset.m);
+      if (!m) return;
+      const media = m.mediaId;
+      m.deleted = true; delete m.text; delete m.mediaId; delete m.src; delete m.kind;
+      putConvo(id, cv); refreshChat(id);
+      if (media) { try { await delMedia(media); } catch { /* já removida */ } }
+    },
+    // ----- bloquear e denunciar -----
+    more: (id, el) => {
+      const c = findCat(id), post = el.dataset.m || '';
+      openModal(`<h2>${esc(c.catName)} <small class="muted">@${esc(c.username)}</small></h2>
+        <div class="menu">
+          <button class="btn ghost" data-act="report-open" data-id="${id}" data-m="${post}">${post ? 'Denunciar este post' : 'Denunciar'}</button>
+          ${isBlocked(id) ? `<button class="btn ghost" data-act="unblock" data-id="${id}">Desbloquear</button>` : `<button class="btn danger" data-act="block" data-id="${id}">Bloquear</button>`}
+          <button class="btn ghost" data-close>Cancelar</button>
+        </div>
+        <p class="muted" style="margin-top:12px">Ao bloquear, vocês deixam de ver o perfil, os posts e as mensagens um do outro.</p>`);
+    },
+    block: (id) => {
+      const c = findCat(id);
+      if (!confirm(`Bloquear ${c.catName} (@${c.username})?`)) return;
+      doBlock(id);
+      modal.open && modal.close();
+      if (location.hash === `#/chats/${id}`) location.hash = '#/chats';
+      render();
+    },
+    unblock: (id) => { S.blocked = S.blocked.filter((x) => x !== id); save(); modal.open && modal.close(); render(); },
+    'report-open': (id, el) => {
+      const c = findCat(id), post = el.dataset.m || '';
+      openModal(`<form id="report-form" data-id="${id}" data-post="${post}"><h2>Denunciar ${post ? 'post de ' : ''}${esc(c.catName)}</h2>
+        <fieldset class="reasons"><legend>O que está acontecendo?</legend>${REPORT_REASONS.map((r, i) => `<label class="check"><input type="radio" name="reason" value="${r}" ${i === 0 ? 'checked' : ''}> ${r}</label>`).join('')}</fieldset>
+        <label class="field"><span>Detalhes (opcional)</span><span class="plain"><textarea name="details" maxlength="300" rows="2"></textarea></span></label>
+        <label class="check"><input type="checkbox" name="alsoBlock" checked> Bloquear também</label>
+        <div class="actions" style="margin-top:14px"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn danger">Enviar denúncia</button></div></form>`);
+    },
+    // ----- aparência do perfil -----
+    'theme-preset': (id) => { draft.theme = id === 'default' ? null : { ...PF_PRESETS[id] }; showEdit(); },
+    'new-blog': () => openModal(`<form id="blog-form"><h2>Novo post de blog</h2>
+      <label class="field"><span>Título</span><span class="plain"><input name="title" maxlength="80" required></span></label>
+      <label class="field"><span>Texto</span><span class="plain"><textarea name="body" maxlength="3000" rows="7" required placeholder="Conte uma história do seu gatinho…"></textarea></span>
+        <small class="hint">Deixe uma linha em branco entre parágrafos. Use “# ” para subtítulo, “> ” para citação, **negrito** e *itálico*.</small></label>
+      <div class="row-style">
+        <label class="field"><span>Cor do fundo</span><input type="color" name="bg" value="#fff7e6"></label>
+        <label class="field"><span>Fonte</span><span class="plain"><select name="font">${Object.keys(PF_FONTS).map((n) => `<option>${n}</option>`).join('')}</select></span></label>
+      </div>
+      <label class="field"><span>Imagem de abertura (opcional)</span><span class="plain"><input type="file" name="file" accept="image/*" style="padding-top:14px"></span></label>
+      <p class="error" role="alert"></p>
+      <div class="actions"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Publicar</button></div></form>`),
+    // ----- moderação -----
+    'mod-dismiss': (id) => { const m = getMod(); m.handled[id] = { action: 'Arquivada', ts: Date.now() }; putMod(m); render(); },
+    'mod-remove': async (id) => {
+      const r = allReports().find((x) => x.id === id), found = r && findPost(r.post);
+      if (!r || !confirm('Remover este post para todo mundo?')) return;
+      const m = getMod();
+      if (found && found.seed) m.removedPosts[r.post] = true;
+      else if (found) {
+        const st = accountState(found.owner);
+        st.posts = (st.posts || []).filter((p) => p.id !== r.post);
+        if (found.owner === session) save(); else localStorage.setItem(`${KEY}:${found.owner}`, JSON.stringify(st));
+        if (found.post.mediaId) { try { await delMedia(found.post.mediaId); } catch { /* já removida */ } }
+      }
+      // Todas as denúncias sobre o mesmo post ficam resolvidas juntas.
+      allReports().filter((x) => x.post === r.post).forEach((x) => { m.handled[x.id] = { action: 'Post removido', ts: Date.now() }; });
+      putMod(m); render();
+    },
+    'mod-suspend': (id) => {
+      const r = allReports().find((x) => x.id === id), c = r && anyCat(r.target);
+      if (!c || !confirm(`Suspender a conta de ${c.catName} (@${c.username})? Ela some para todos e não consegue mais entrar.`)) return;
+      const m = getMod();
+      m.suspended[isDM(r.target) ? r.target.slice(2) : r.target] = Date.now();
+      allReports().filter((x) => x.target === r.target).forEach((x) => { m.handled[x.id] = { action: 'Conta suspensa', ts: Date.now() }; });
+      putMod(m);
+      if (dockChat === r.target) dockChat = null;
+      render();
+    },
+    'mod-restore': (id) => { const m = getMod(); delete m.suspended[id]; putMod(m); render(); },
+    'onboard-close': () => { S.onboard = false; save(); render(); },
     logout: () => { setSession(null); authView = 'login'; location.hash = ''; render(); },
     'delete-account': async () => {
       if (!confirm(`Excluir a conta @${session}? Isso apaga o perfil, álbuns, vídeos e conversas dela neste navegador.`)) return;
@@ -1012,6 +1416,7 @@
     if (f.id === 'login') {
       const name = str('username').toLowerCase(), acc = accounts[name];
       if (!acc || (await hashPw(String(d.password || ''), acc.salt)) !== acc.hash) { err.textContent = 'Usuário ou senha incorretos.'; return; }
+      if (getMod().suspended[name]) { err.textContent = 'Esta conta foi suspensa pela moderação.'; return; }
       setSession(name); render();
       return;
     }
@@ -1042,9 +1447,39 @@
         saveAccounts(); setSession(pending.username);
         u.username = pending.username; pending = null; authView = 'login';
       }
-      S.user = Object.assign({ coat: COATS[0].color, bio: '', photo: '' }, S.user, u, f.id === 'profile-form' ? { coat: str('coat') || S.user.coat, bio: str('bio'), photo: (draft && draft.photo) || '', cover: (draft && draft.cover) || '' } : {});
+      S.user = Object.assign({ coat: COATS[0].color, bio: '', photo: '' }, S.user, u, f.id === 'profile-form' ? { coat: str('coat') || S.user.coat, bio: str('bio'), photo: (draft && draft.photo) || '', cover: (draft && draft.cover) || '', theme: (draft && draft.theme) || null } : {});
       draft = null;
+      // Depois do cadastro, a pessoa cai no próprio perfil, com a lista de primeiros passos.
+      if (f.id === 'signup') { S.onboard = true; location.hash = '#/perfil'; }
       save(); modal.open && modal.close(); render();
+    }
+
+    if (f.id === 'report-form') {
+      const target = f.dataset.id;
+      S.reports.push({ id: uid(), target, post: f.dataset.post || '', reason: str('reason'), details: str('details'), ts: Date.now() });
+      if (d.alsoBlock) doBlock(target); else save();
+      if (location.hash === `#/chats/${target}` && isBlocked(target)) location.hash = '#/chats';
+      render();
+      openModal(`<h2>Denúncia registrada</h2>
+        <p>Obrigado por avisar.${d.alsoBlock ? ' A conta foi bloqueada e não aparece mais para você.' : ''}</p>
+        <p class="muted" style="margin-top:10px">Em modo de teste local, a denúncia fica guardada neste navegador (em Configurações) e ainda não há uma equipe analisando.</p>
+        <div class="actions" style="margin-top:14px"><button class="btn" data-close>Fechar</button></div>`);
+      return;
+    }
+
+    if (f.id === 'blog-form') {
+      if (!str('title') || !str('body')) { err.textContent = 'Escreva o título e o texto.'; return; }
+      try {
+        const file = f.file.files[0];
+        let mediaId = '';
+        if (file) {
+          const cv = await shrink(file, 1280);
+          mediaId = await putMedia(await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.85)));
+        }
+        S.posts.push({ id: uid(), kind: 'blog', title: str('title'), body: String(d.body || '').trim(), bg: safeColor(str('bg'), '#fff7e6'), font: PF_FONTS[str('font')] ? str('font') : 'Fredoka', mediaId, ts: Date.now() });
+        save(); modal.close(); feedTab = 'foryou'; location.hash = '#/'; render(); window.scrollTo(0, 0);
+      } catch { err.textContent = 'Não consegui publicar. Tente sem a imagem.'; }
+      return;
     }
 
     if (f.id === 'post-form') {
@@ -1077,18 +1512,12 @@
     }
 
     if (f.id === 'send' || f.id === 'dock-send') {
-      const id = f.dataset.id, text = str('text');
-      if (!text) return;
-      (S.chats[id] = S.chats[id] || []).push({ from: 'me', text });
-      save(); refreshChat(id, true);
-      // Resposta automática: a comunidade é fictícia nesta versão.
-      setTimeout(() => {
-        if (!S.chats[id]) return;
-        S.chats[id].push({ from: id, text: MEOW_REPLIES[Math.floor(Math.random() * MEOW_REPLIES.length)] });
-        save(); refreshChat(id);
-      }, 900);
+      const text = str('text');
+      if (text) sendMsg(f.dataset.id, { kind: 'text', text });
     }
   });
 
+  // Se a conta foi suspensa enquanto estava logada, ela é desconectada ao abrir o app.
+  if (session && getMod().suspended[session]) { setSession(null); authView = 'login'; }
   render();
 })();
