@@ -11,6 +11,8 @@
     albums: [],          // { id, name, items: [mediaId] }
     tiks: [],            // { id, mediaId, caption, trend, liked, ts }
     likedSeeds: [],
+    posts: [],           // { id, mediaId, caption, ts }
+    likedPosts: [],
     twin: null,          // { photo, emb } da foto enviada ao TwinCats
     following: [],       // ids dos gatinhos seguidos
     settings: { showOwner: true, showBirth: true, privateProfile: false, showInTwins: true, motion: true },
@@ -36,8 +38,14 @@
   const save = () => {
     if (!session) return;
     try { localStorage.setItem(`${KEY}:${session}`, JSON.stringify(S)); }
-    catch { alert('Não foi possível salvar: o armazenamento do navegador está cheio ou bloqueado.'); }
+    catch (e) { console.error('MEOWorld: falha ao salvar', e); alert(`Não foi possível salvar. O espaço deste navegador para o MEOWorld está cheio (${storageUsed()} de cerca de 5 MB) ou bloqueado. Remova a capa ou exclua contas de teste em Configurações e tente de novo.`); }
   };
+  // Espaço ocupado pelo MEOWorld no localStorage (o limite dos navegadores fica perto de 5 MB).
+  function storageUsed() {
+    let n = 0;
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('meoworld')) n += k.length + localStorage.getItem(k).length; } } catch { return '?'; }
+    return n > 1e6 ? (n / 1e6).toFixed(1).replace('.', ',') + ' MB' : Math.round(n / 1e3) + ' KB';
+  }
   const saveAccounts = () => localStorage.setItem(ACC, JSON.stringify(accounts));
   function setSession(name) {
     session = name;
@@ -97,7 +105,7 @@
     .replace('<rect width="100" height="100" fill="#e6f6ff"/>', `<rect width="100" height="100" fill="${coat}"/>`)
     .replace('<path d="M25 40 26 22 40 32zM75 40 74 22 60 32z" fill="#ffc9d4"/>', '');
   // Foto do gatinho (quando houver) ou o desenho na cor da pelagem.
-  const catPic = (c) => (c.photo ? `<img src="${c.photo}" alt="" loading="lazy">` : catPic(c));
+  const catPic = (c) => (c.photo ? `<img src="${c.photo}" alt="" loading="lazy">` : catSVG(c.coat, c.eyes));
   const userFace = () => (S.user.photo ? `<img src="${S.user.photo}" alt="Foto de ${esc(S.user.catName)}">` : catSVG(S.user.coat));
 
   const LOGO = `<span class="logo" role="img" aria-label="MEOWorld">${LOGO_MARK}${LOGO_WORD}</span>`;
@@ -112,6 +120,7 @@
     heart: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-8-5.2-8-11a4.6 4.6 0 0 1 8-3 4.6 4.6 0 0 1 8 3c0 5.8-8 11-8 11z"/></svg>',
     gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.4-2.3 1a7.6 7.6 0 0 0-2.6-1.5L14.1 2.5H9.9l-.4 2.6A7.6 7.6 0 0 0 6.9 6.6l-2.3-1-2 3.4 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.4 2.3-1a7.6 7.6 0 0 0 2.6 1.5l.4 2.6h4.2l.4-2.6a7.6 7.6 0 0 0 2.6-1.5l2.3 1 2-3.4z"/></svg>',
     shop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
     search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>'
   };
@@ -235,6 +244,7 @@
           <label class="field"><span>Gênero:</span><span class="paw"><select name="gender" required><option value="">—</option><option>Fêmea</option><option>Macho</option></select></span></label>
         </div>
         ${breedList}
+        <small class="hint" style="margin-top:-6px">Não sabe a raça? Escolha “SRD (vira-lata)”: é o caso da grande maioria dos gatos.</small>
         <p class="error" role="alert"></p>
         <button class="btn btn-big">Meowdastre-se</button>
         <p class="switch"><button type="button" class="link" data-act="go-account">← Voltar</button></p>
@@ -253,17 +263,49 @@
   }
   const chatPanel = (activeId) => `<div class="chat-panel"><h2>C(h)ats</h2><p class="muted">Meow-papo entre tutores e seus gatos</p>${chatList(activeId)}</div>`;
 
+  // ---------- Timeline ----------
+  let feedTab = 'foryou';
+  const BOOT = Date.now();
+  function timeAgo(ts) {
+    const m = Math.max(1, Math.round((Date.now() - ts) / 60000));
+    if (m < 60) return `há ${m} min`;
+    const h = Math.round(m / 60);
+    if (h < 24) return `há ${h} h`;
+    const dd = Math.round(h / 24);
+    return dd === 1 ? 'ontem' : `há ${dd} dias`;
+  }
+  // Junta os meus posts, os das outras contas deste navegador e os de demonstração.
+  function allPosts() {
+    const me = { id: 'me', catName: S.user.catName, username: S.user.username || session };
+    const mine = S.posts.map((p) => ({ ...p, author: me, mine: true, likes: 0 }));
+    const locals = localCats().flatMap((c) => (readJSON(`${KEY}:${c.username}`, {}).posts || []).map((p) => ({ ...p, author: c, likes: 0 })));
+    const seeds = SEED_POSTS.map((p) => ({ id: p.id, caption: p.caption, likes: p.likes, ts: BOOT - p.h * 3600e3, author: findCat(p.cat), photo: findCat(p.cat).photo }));
+    return [...mine, ...locals, ...seeds].sort((x, y) => y.ts - x.ts);
+  }
+  function postCard(p) {
+    const c = p.author, liked = S.likedPosts.includes(p.id);
+    const who = p.mine ? `<a class="avatar" href="#/perfil">${userFace()}</a>` : `<a class="avatar" href="#/gato/${c.id}">${catPic(c)}</a>`;
+    return `<article class="card post">
+      <header>${who}<div class="grow"><a href="${p.mine ? '#/perfil' : '#/gato/' + c.id}"><b>${esc(c.catName)}</b></a><small>@${esc(c.username)} · ${timeAgo(p.ts)}</small></div>
+        ${p.mine ? `<button class="icon-btn soft" data-act="del-post" data-id="${p.id}" aria-label="Excluir post">${I.trash}</button>` : isFollowing(c.id) ? '' : followBtn(c.id)}</header>
+      ${p.mediaId ? `<img class="post-img" data-media="${p.mediaId}" alt="Foto do post de ${esc(c.catName)}" loading="lazy">` : `<img class="post-img" src="${p.photo}" alt="Foto do post de ${esc(c.catName)}" loading="lazy">`}
+      ${p.caption ? `<p class="post-cap">${esc(p.caption)}</p>` : ''}
+      <footer><button class="like ${liked ? 'on' : ''}" data-act="like-post" data-id="${p.id}" aria-pressed="${liked}" aria-label="Curtir">${I.heart}<span>${p.likes + (liked ? 1 : 0)}</span></button></footer>
+    </article>`;
+  }
   function viewHome() {
-    const tiles = [
-      ['tikcats', I.tik, 'TikCats', 'Vídeos e trends da gatosfera'],
-      ['catbooks', I.book, 'CatBooks', 'Os melhores cliques do seu gatinho'],
-      ['twincats', I.twin, 'TwinCats?', 'Será que seu gato tem um sósia?'],
-      ['curiouscats', I.curious, 'CuriousCats', 'Tudo o que você queria saber sobre gatos']
-    ];
+    const posts = allPosts();
+    const list = feedTab === 'following' ? posts.filter((p) => p.mine || isFollowing(p.author.id)) : posts;
     return `<div class="hello"><h1 class="page-title">Miau, ${esc(S.user.catName)}!</h1><p class="page-sub">O cantinho de quem é louco por gatos.</p></div>
-      <div class="tiles">${tiles.map(([r, ic, t, d]) => `<a class="tile" href="#/${r}">${ic}<b>${t}</b><small>${d}</small></a>`).join('')}</div>
-      <a class="tile tile-wide" href="#/compras">${I.shop}<span><b>Guia de compras</b><small>Rações e areias: cara, média e barata, com preço médio</small></span></a>
-      <div class="home-chats only-mobile">${chatPanel()}</div>`;
+      <div class="chips only-mobile"><a class="chip" href="#/compras">Guia de compras</a><a class="chip" href="#/buscar">Buscar gatinhos</a><a class="chip" href="#/config">Configurações</a></div>
+      <div class="feed-bar">
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="${feedTab === 'foryou'}" class="${feedTab === 'foryou' ? 'on' : ''}" data-act="feed-tab" data-id="foryou">Para você</button>
+          <button role="tab" aria-selected="${feedTab === 'following'}" class="${feedTab === 'following' ? 'on' : ''}" data-act="feed-tab" data-id="following">Seguindo</button>
+        </div>
+        <button class="btn small" data-act="new-post">${I.plus} Novo post</button>
+      </div>
+      <div class="timeline">${list.map(postCard).join('') || `<div class="card empty">Você ainda não segue ninguém. Dê uma olhada em “Para você” ou <a href="#/buscar"><u>busque gatinhos</u></a> para seguir.</div>`}</div>`;
   }
 
   function viewTik() {
@@ -334,20 +376,23 @@
 
   const loadScript = (src) => new Promise((res, rej) => {
     const el = document.createElement('script');
-    el.src = src; el.onload = res; el.onerror = () => rej(new Error('script'));
+    el.src = src; el.onload = res; el.onerror = () => rej(new Error('não carregou ' + src));
     document.head.appendChild(el);
   });
   let twinModel = null, twinBusy = '', twinMsg = '';
+  let twinPending = null; // { file, url, post } da foto escolhida, antes de comparar
   async function getTwinModel() {
     if (twinModel) return twinModel;
-    if (!window.tf) await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
-    if (!window.mobilenet) await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js');
-    twinModel = await window.mobilenet.load({ version: 2, alpha: 1.0 });
+    // A IA fica na pasta vendor/ do próprio site: nada é baixado de servidores externos.
+    if (!window.tf) await loadScript('vendor/tf.min.js');
+    if (!window.mobilenet) await loadScript('vendor/mobilenet.min.js');
+    twinModel = await window.mobilenet.load({ version: 2, alpha: 1.0, modelUrl: 'vendor/mobilenet/model.json', inputRange: [0, 1] });
     return twinModel;
   }
-  async function analyzeTwinPhoto(file) {
+  async function analyzeTwinPhoto(file, alsoPost) {
     const setBusy = (t) => { twinBusy = t; if (location.hash.startsWith('#/twincats')) render(); };
     twinMsg = '';
+    let step = 'abrir a foto';
     try {
       setBusy('Preparando a foto…');
       const big = await shrink(file, 600);
@@ -355,19 +400,35 @@
       const cv = document.createElement('canvas');
       cv.width = cv.height = 224;
       cv.getContext('2d').drawImage(big, (big.width - side) / 2, (big.height - side) / 2, side, side, 0, 0, 224, 224);
+      step = 'carregar a IA';
       setBusy('Carregando a IA (só demora na primeira vez)…');
       const model = await getTwinModel();
+      step = 'analisar a foto';
       setBusy('Procurando os gatinhos mais parecidos…');
       const top = await model.classify(cv, 5);
       const isCat = top.some((t) => /cat|tabby|lynx|kitt|cougar|leopard|lion|tiger/i.test(t.className));
       const v = window.tf.tidy(() => { const e = model.infer(cv, true); return e.div(e.norm()); });
       const emb = Array.from(await v.data()).map((x) => Math.round(x * 1e4) / 1e4);
       v.dispose();
-      S.twin = { photo: cv.toDataURL('image/jpeg', 0.85), emb };
+      // Esta IA só distingue com segurança dois tipos de raça: Siamês (pontas escuras) e Persa (pelo longo).
+      const strong = top.find((t) => t.probability >= 0.5 && /Siamese|Persian/i.test(t.className));
+      const look = strong ? (/Siamese/i.test(strong.className) ? 'Siamês' : 'Persa') : '';
+      S.twin = { photo: cv.toDataURL('image/jpeg', 0.85), emb, look };
+      // O post do TwinCats é único: comparar de novo substitui o anterior.
+      const old = S.posts.filter((p) => p.twin);
+      S.posts = S.posts.filter((p) => !p.twin);
+      if (alsoPost) {
+        step = 'publicar na timeline';
+        const full = await shrink(file, 1080);
+        const blob = await new Promise((r) => full.toBlob(r, 'image/jpeg', 0.85));
+        S.posts.push({ id: uid(), mediaId: await putMedia(blob), caption: `${S.user.catName} entrou no TwinCats! Será que tem um sósia por aqui?`, ts: Date.now(), twin: true });
+      }
       save();
+      for (const p of old) { try { await delMedia(p.mediaId); } catch { /* já removida */ } }
       twinMsg = isCat ? '' : 'Não tenho certeza de que há um gato nessa foto. Para um resultado melhor, use uma foto nítida, de frente e com boa luz.';
     } catch (e) {
-      twinMsg = 'Não consegui analisar a foto. A IA precisa de internet para carregar na primeira vez; tente de novo.';
+      console.error('TwinCats:', step, e);
+      twinMsg = `Não consegui ${step}. Recarregue a página com Ctrl+F5 e tente de novo. Se continuar, me avise com este detalhe: ${esc(String((e && e.message) || e).slice(0, 120))}`;
     }
     setBusy('');
   }
@@ -377,13 +438,19 @@
     const byPhoto = !!S.twin;
     return `<h1 class="page-title">TwinCats</h1><p class="page-sub">Será que seu gato tem um sósia? Envie uma foto e a IA procura os gatinhos mais parecidos.</p>
       <div class="card twin-up">
-        ${byPhoto ? `<img class="twin-photo" src="${S.twin.photo}" alt="Foto enviada para o TwinCats">` : `<span class="twin-photo empty">${I.twin}</span>`}
+        ${twinPending ? `<img class="twin-photo" src="${twinPending.url}" alt="Foto escolhida">` : byPhoto ? `<img class="twin-photo" src="${S.twin.photo}" alt="Foto enviada para o TwinCats">` : `<span class="twin-photo empty">${I.twin}</span>`}
         <div class="grow">
+          ${twinPending ? `<b>Foto escolhida</b>
+            <p class="muted">Toque em Comparar para a IA procurar os gatinhos mais parecidos e colocar o seu na comparação dos outros tutores.</p>
+            ${twinBusy ? `<div class="actions"><span class="twin-busy" role="status">${twinBusy}</span></div>` : `
+            <label class="check twin-check"><input type="checkbox" data-act="twin-post-toggle" ${twinPending.post ? 'checked' : ''}> Publicar a foto também na timeline</label>
+            <div class="actions"><button class="btn" data-act="twin-compare">Comparar</button><button class="btn ghost" data-act="twin-cancel">Cancelar</button></div>`}` : `
           <b>${byPhoto ? 'Comparando pela foto' : 'Compare pela foto'}</b>
           <p class="muted">${byPhoto ? 'A porcentagem mostra o quanto cada gatinho se parece com a foto que você enviou.' : 'Sem foto, comparamos só raça, pelagem, gênero e idade do perfil.'}</p>
-          <div class="actions">${twinBusy ? `<span class="twin-busy" role="status">${twinBusy}</span>` : `
+          <div class="actions">
             <button class="btn small" data-act="twin-photo">${byPhoto ? 'Trocar foto' : 'Enviar foto do meu gato'}</button>
-            ${byPhoto ? '<button class="btn small ghost" data-act="twin-clear">Remover foto</button>' : ''}`}</div>
+            ${byPhoto ? '<button class="btn small ghost" data-act="twin-clear">Remover foto</button>' : ''}</div>
+          ${byPhoto ? `<p class="twin-look">${S.twin.look ? `Pela foto, parece ter traços de <b>${S.twin.look}</b>. Só pedigree ou teste de DNA confirmam uma raça.` : 'Pela foto, não reconheci traços de Siamês nem de Persa, as únicas raças que esta IA sabe apontar. O mais comum é ser SRD (vira-lata), como a grande maioria dos gatos.'} A raça não entra na porcentagem: a comparação é só pela aparência.</p>` : ''}`}
           ${twinMsg ? `<p class="twin-warn" role="alert">${twinMsg}</p>` : ''}
         </div>
       </div>
@@ -465,7 +532,7 @@
     const photos = S.albums.reduce((n, a) => n + a.items.length, 0);
     return `${profileHTML({ ...S.user, owner: S.settings.showOwner ? S.user.owner : '', hideBirth: !S.settings.showBirth }, S.user.photo ? userFace() : catFace(S.user.coat), true,
         `<span class="pf-actions"><button class="btn" data-act="edit-profile">Editar perfil</button><a class="icon-btn soft only-mobile" href="#/config" aria-label="Configurações">${I.gear}</a></span>`,
-        [[localFollowers('u:' + session), 'seguidores'], [S.following.filter(findCat).length, 'seguindo'], [S.albums.length, S.albums.length === 1 ? 'álbum' : 'álbuns'], [photos, photos === 1 ? 'foto' : 'fotos'], [S.tiks.length, S.tiks.length === 1 ? 'vídeo' : 'vídeos']])}
+        [[S.posts.length, S.posts.length === 1 ? 'post' : 'posts'], [localFollowers('u:' + session), 'seguidores'], [S.following.filter(findCat).length, 'seguindo'], [S.albums.length, S.albums.length === 1 ? 'álbum' : 'álbuns'], [photos, photos === 1 ? 'foto' : 'fotos'], [S.tiks.length, S.tiks.length === 1 ? 'vídeo' : 'vídeos']])}
       <h2 class="section-title">CatBooks</h2>
       ${albums ? `<div class="grid">${albums}</div>` : '<div class="card empty">Seus álbuns aparecem aqui. <a href="#/catbooks"><u>Criar um álbum</u></a></div>'}`;
   }
@@ -548,6 +615,9 @@
         </section>
         <section class="card"><h2>Aparência</h2>
           <label class="switch-row"><span><b>Fundo animado</b><small>Desligue para deixar o degradê do fundo parado.</small></span><input type="checkbox" role="switch" data-act="set" data-id="motion" ${S.settings.motion ? 'checked' : ''}></label>
+        </section>
+        <section class="card"><h2>Armazenamento</h2>
+          <p>Em modo de teste local, tudo fica guardado neste navegador. Em uso: <b>${storageUsed()}</b> de cerca de 5 MB (contas: ${Object.keys(accounts).length}). Fotos de perfil e capas são o que mais ocupa.</p>
         </section>
         <section class="card"><h2>Sessão</h2>
           <p>Sair não apaga nada: seu perfil, álbuns e conversas continuam guardados neste navegador.</p>
@@ -644,6 +714,9 @@
   // Quantas contas deste navegador seguem o gatinho com esse id.
   const localFollowers = (id) => Object.keys(accounts).filter((name) => name !== session && (readJSON(`${KEY}:${name}`, {}).following || []).includes(id)).length;
 
+  // "#Minha Tag!" -> "#MinhaTag": sem espaços nem símbolos, sempre com # na frente.
+  const cleanTag = (t) => { const w = String(t).replace(/[^p{L}p{N}_]/gu, ''); return w ? '#' + w.slice(0, 28) : ''; };
+
   const applyPrefs = () => document.body.classList.toggle('no-motion', !!session && !S.settings.motion);
 
   function render() {
@@ -707,7 +780,7 @@
     const [file] = await pickFile('image/*');
     if (!file) return;
     const img = new Image();
-    img.onerror = () => alert('Não consegui abrir essa imagem.');
+    img.onerror = () => alert(`Não consegui abrir essa imagem (${file.name}, ${file.type || 'tipo desconhecido'}). Use JPG, PNG ou WEBP.`);
     img.onload = () => {
       const out = kind === 'photo' ? [320, 320] : [1200, 400];
       openModal(`<div class="cropper"><h2>${kind === 'photo' ? 'Ajustar foto de perfil' : 'Ajustar capa'}</h2>
@@ -771,7 +844,9 @@
     'new-tik': () => openModal(`<form id="tik-form"><h2>Postar no TikCats</h2>
       <label class="field"><span>Vídeo</span><span class="plain"><input type="file" name="file" accept="video/*" required style="padding-top:14px"></span></label>
       <label class="field"><span>Legenda</span><span class="plain"><input name="caption" maxlength="120" required></span></label>
-      <label class="field"><span>Trend</span><span class="plain"><select name="trend"><option value="">Sem trend</option>${TRENDS.map((t) => `<option>${t}</option>`).join('')}</select></span></label>
+      <label class="field"><span>Tag</span><span class="plain"><input name="trend" list="trends" maxlength="30" placeholder="#SuaTag ou escolha uma trend" autocomplete="off" autocapitalize="none" spellcheck="false"></span>
+        <small class="hint">Opcional. Crie a sua ou use uma das trends.</small></label>
+      <datalist id="trends">${TRENDS.map((t) => `<option value="${t}">`).join('')}</datalist>
       <p class="error" role="alert"></p>
       <div class="actions"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Postar</button></div></form>`),
     'new-album': () => openModal(`<form id="album-form"><h2>Novo álbum</h2>
@@ -815,7 +890,10 @@
     'clear-photo': () => { draft.photo = ''; showEdit(); },
     'clear-cover': () => { draft.cover = ''; showEdit(); },
     'crop-cancel': () => showEdit(),
-    'crop-apply': () => { draft[crop.kind] = cropResult(); showEdit(); },
+    'crop-apply': () => {
+      try { draft[crop.kind] = cropResult(); showEdit(); }
+      catch (e) { console.error('MEOWorld: recorte', e); alert('Não consegui usar essa imagem: ' + ((e && e.message) || e)); }
+    },
     'go-login': () => { authView = 'login'; render(); },
     'go-account': () => { authView = 'account'; render(); },
     'toggle-pw': (_, el) => el.form.querySelectorAll('[name=password], [name=confirm]').forEach((i) => { i.type = el.checked ? 'text' : 'password'; }),
@@ -824,12 +902,43 @@
     'dock-close': () => { dockChat = null; renderDock(); },
     follow: (id) => { S.following = isFollowing(id) ? S.following.filter((x) => x !== id) : [...S.following, id]; save(); render(); },
     'shop-jump': (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
-    'twin-photo': async () => { const [f] = await pickFile('image/*'); if (f) analyzeTwinPhoto(f); },
-    'twin-clear': () => { S.twin = null; twinMsg = ''; save(); render(); },
+    'twin-photo': async () => {
+      const [f] = await pickFile('image/*');
+      if (!f) return;
+      if (twinPending) URL.revokeObjectURL(twinPending.url);
+      twinPending = { file: f, url: URL.createObjectURL(f), post: S.settings.showInTwins };
+      twinMsg = ''; render();
+    },
+    'twin-post-toggle': (_, el) => { twinPending.post = el.checked; },
+    'twin-cancel': () => { URL.revokeObjectURL(twinPending.url); twinPending = null; render(); },
+    'twin-compare': async () => {
+      const p = twinPending;
+      await analyzeTwinPhoto(p.file, p.post);
+      if (S.twin && !/^Não consegui/.test(twinMsg)) { URL.revokeObjectURL(p.url); twinPending = null; if (p.post) twinMsg = (twinMsg ? twinMsg + ' ' : '') + 'Foto publicada na timeline.'; }
+      if (location.hash.startsWith('#/twincats')) render();
+    },
+    'twin-clear': async () => {
+      const old = S.posts.filter((p) => p.twin);
+      S.twin = null; S.posts = S.posts.filter((p) => !p.twin); twinMsg = ''; save(); render();
+      for (const p of old) { try { await delMedia(p.mediaId); } catch { /* já removida */ } }
+    },
+    'feed-tab': (id) => { feedTab = id; render(); window.scrollTo(0, 0); },
+    'like-post': (id) => { S.likedPosts = S.likedPosts.includes(id) ? S.likedPosts.filter((x) => x !== id) : [...S.likedPosts, id]; save(); render(); },
+    'new-post': () => openModal(`<form id="post-form"><h2>Novo post</h2>
+      <label class="field"><span>Foto</span><span class="plain"><input type="file" name="file" accept="image/*" required style="padding-top:14px"></span></label>
+      <label class="field"><span>Legenda</span><span class="plain"><textarea name="caption" maxlength="200" rows="3" placeholder="O que o seu gatinho aprontou hoje?"></textarea></span></label>
+      <p class="error" role="alert"></p>
+      <div class="actions"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Publicar</button></div></form>`),
+    'del-post': async (id) => {
+      if (!confirm('Excluir este post?')) return;
+      const p = S.posts.find((x) => x.id === id);
+      S.posts = S.posts.filter((x) => x.id !== id);
+      save(); await delMedia(p.mediaId); render();
+    },
     logout: () => { setSession(null); authView = 'login'; location.hash = ''; render(); },
     'delete-account': async () => {
       if (!confirm(`Excluir a conta @${session}? Isso apaga o perfil, álbuns, vídeos e conversas dela neste navegador.`)) return;
-      const media = [...S.albums.flatMap((a) => a.items), ...S.tiks.map((t) => t.mediaId)];
+      const media = [...S.albums.flatMap((a) => a.items), ...S.tiks.map((t) => t.mediaId), ...S.posts.map((p) => p.mediaId)];
       try { await Promise.all(media.map(delMedia)); } catch { /* sem mídia para limpar */ }
       localStorage.removeItem(`${KEY}:${session}`);
       delete accounts[session]; saveAccounts();
@@ -938,6 +1047,17 @@
       save(); modal.open && modal.close(); render();
     }
 
+    if (f.id === 'post-form') {
+      const file = f.file.files[0];
+      if (!file || !file.type.startsWith('image/')) { err.textContent = 'Escolha uma foto.'; return; }
+      try {
+        const cv = await shrink(file, 1080);
+        const blob = await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.85));
+        S.posts.push({ id: uid(), mediaId: await putMedia(blob), caption: str('caption'), ts: Date.now() });
+        save(); modal.close(); feedTab = 'foryou'; location.hash = '#/'; render(); window.scrollTo(0, 0);
+      } catch { err.textContent = 'Não consegui publicar essa foto.'; }
+    }
+
     if (f.id === 'album-form') {
       if (!str('name')) return;
       const a = { id: uid(), name: str('name'), items: [] };
@@ -951,7 +1071,7 @@
       if (file.size > 80 * 1024 * 1024) { err.textContent = 'Vídeo muito grande (máximo 80 MB).'; return; }
       try {
         const mediaId = await putMedia(file);
-        S.tiks.push({ id: uid(), mediaId, caption: str('caption'), trend: str('trend'), liked: false, ts: Date.now() });
+        S.tiks.push({ id: uid(), mediaId, caption: str('caption'), trend: cleanTag(str('trend')), liked: false, ts: Date.now() });
         save(); modal.close(); render();
       } catch { err.textContent = 'Não foi possível salvar o vídeo neste navegador.'; }
     }

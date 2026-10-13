@@ -465,3 +465,28 @@ body.no-motion::before, body.no-motion::after { animation: none; }
 .twin-warn { margin-top: 10px; color: #8a5a00; background: #fff4dc; border-radius: 14px; padding: 8px 12px; font-size: .9rem; }
 .twin-note { margin: 0 4px 14px; }
 .tag-real { margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: #dcf5e3; color: #24754a; font-family: var(--font); font-size: .72rem; font-weight: 700; white-space: nowrap; vertical-align: middle; }
+
+/* ---------- Timeline ---------- */
+.feed-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.tabs { display: inline-flex; padding: 4px; border-radius: 999px; background: var(--white); box-shadow: 0 8px 30px rgba(79, 147, 184, .12); }
+.tabs button { padding: 8px 18px; border-radius: 999px; font-family: var(--display); font-weight: 600; color: var(--blue); }
+.tabs button.on { background: var(--blue); color: var(--white); }
+.btn svg { width: 18px; height: 18px; }
+.timeline { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; max-width: 560px; }
+.post { padding: 0; overflow: hidden; }
+.post header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+.post header .avatar { background: var(--sky-3); }
+.post header .grow { flex: 1; min-width: 0; }
+.post header b, .post header small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.post header small { color: var(--blue); }
+.post-img { width: 100%; aspect-ratio: 1; object-fit: cover; background: var(--sky-3); }
+.post-cap { padding: 12px 16px 0; line-height: 1.5; overflow-wrap: anywhere; }
+.post footer { padding: 6px 10px 10px; }
+.like { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 999px; color: var(--blue); font-weight: 700; }
+.like svg { width: 24px; height: 24px; }
+.like.on { color: #e0557a; }
+.like:hover { background: var(--sky-3); }
+.twin-look { margin-top: 10px; font-size: .9rem; line-height: 1.45; color: var(--blue-d); }
+.feed-bar { max-width: 560px; }
+.twin-check { margin: 10px 0 0; }
+.twin-warn { white-space: normal; }

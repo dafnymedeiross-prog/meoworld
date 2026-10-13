@@ -537,3 +537,25 @@ const SHOP = {
     }
   ]
 };
+
+// Posts de demonstração da timeline. "h" é há quantas horas o post foi feito.
+const SEED_POSTS = [
+  { id: 'p1', cat: 'c13', caption: "Alongamento do dia: 100% barriga para cima.", likes: 412, h: 1 },
+  { id: 'p2', cat: 'c5', caption: "Corrida das 3 da manhã: novo recorde no corredor.", likes: 933, h: 2 },
+  { id: 'p3', cat: 'c18', caption: "Reunião cancelada: deitei no teclado.", likes: 268, h: 3 },
+  { id: 'p4', cat: 'c2', caption: "Turno de soneca número 4 do dia concluído com sucesso.", likes: 248, h: 5 },
+  { id: 'p5', cat: 'c9', caption: "Vigiando os passarinhos da janela. Trabalho sério.", likes: 154, h: 7 },
+  { id: 'p6', cat: 'c7', caption: "A cama nova chegou. Fiquei com a caixa.", likes: 512, h: 9 },
+  { id: 'p7', cat: 'c12', caption: "Primeira neve da vida. Gelado, mas aprovado.", likes: 317, h: 12 },
+  { id: 'p8', cat: 'c3', caption: "Reclamei do pote meio vazio por 40 minutos. Funcionou.", likes: 97, h: 16 },
+  { id: 'p9', cat: 'c16', caption: "De olho no aquário. Só olhando, juro.", likes: 201, h: 20 },
+  { id: 'p10', cat: 'c10', caption: "Tomando sol no muro, como manda a tradição.", likes: 88, h: 26 },
+  { id: 'p11', cat: 'c1', caption: "Derrubei um copo hoje. Foi sem querer querendo.", likes: 128, h: 30 },
+  { id: 'p12', cat: 'c14', caption: "Miei até abrirem a porta. Depois não quis sair.", likes: 76, h: 36 },
+  { id: 'p13', cat: 'c4', caption: "Dizem que sou grande. Eu digo que o sofá é que é pequeno.", likes: 510, h: 44 },
+  { id: 'p14', cat: 'c17', caption: "Achei um lugar novo para dormir: em cima da roupa limpa.", likes: 59, h: 52 },
+  { id: 'p15', cat: 'c8', caption: "Olhei para a humana até ela me dar colo. Técnica infalível.", likes: 233, h: 60 },
+  { id: 'p16', cat: 'c11', caption: "Apareci do nada na cozinha de novo. Ninguém me viu chegar.", likes: 145, h: 72 },
+  { id: 'p17', cat: 'c6', caption: "Aceito sachê. Ração seca só em último caso.", likes: 189, h: 90 },
+  { id: 'p18', cat: 'c15', caption: "Escovada do dia feita. Sobrou pelo para outro gato.", likes: 122, h: 110 }
+];
