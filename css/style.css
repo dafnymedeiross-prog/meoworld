@@ -767,3 +767,33 @@ dialog.rich-modal { width: min(96vw, 560px); padding: 16px; }
 #cap-form { text-align: left; }
 .post header .icon-btn + .icon-btn { margin-left: 4px; }
 .themed .comments { border-top-color: color-mix(in srgb, var(--pf-ink) 14%, transparent); }
+
+/* ---------- TikCats: um vídeo por tela, rolagem vertical ---------- */
+.tik-page { display: flex; flex-direction: column; gap: 8px; height: calc(100dvh - 178px); min-height: 420px; }
+.tik-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tik-top .page-title { margin: 0; }
+.tik-chips { flex-wrap: nowrap; overflow-x: auto; margin: 0; padding-bottom: 2px; flex: none; }
+.tik-chips .chip { padding: 5px 12px; font-size: .8rem; }
+.tik-page .feed { flex: 1; min-height: 0; height: auto; max-width: none; margin: 0; overscroll-behavior: contain; scroll-snap-stop: always; }
+.tik { scroll-snap-stop: always; margin-bottom: 0; border-radius: var(--radius); }
+.tik + .tik { margin-top: 8px; }
+.tik video { object-fit: cover; }
+.tik::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 45%; background: linear-gradient(transparent, rgba(0, 0, 0, .55)); pointer-events: none; }
+.tik.demo::after { display: none; }
+.tik-info, .tik-side, .tik-mute { z-index: 1; }
+.tik-info { right: 70px; padding: 14px 14px 16px; }
+.tik-info b small { font-weight: 600; opacity: .85; }
+.tik-info p { margin: 2px 0 0; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.tik-tag { display: inline-block; margin-top: 6px; padding: 3px 10px; border-radius: 999px; background: rgba(255, 255, 255, .22); font-size: .85rem; }
+.tik.demo .tik-tag { background: rgba(255, 255, 255, .6); }
+.tik-side { gap: 4px; bottom: 14px; }
+.tik-side button { margin-top: 8px; }
+.tik-side small { margin-top: 0; min-height: 1em; font-size: .8rem; }
+.tik-mute { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 50%; background: rgba(0, 0, 0, .45); font-size: 1.1rem; }
+.tik-cm .comments { border-top: 0; padding: 0; max-height: 55dvh; overflow-y: auto; }
+.msg-tik { display: grid; gap: 2px; padding: 10px 14px; border-radius: 16px; background: #1d3442; color: #fff; max-width: 240px; }
+.msg-tik small { opacity: .85; overflow-wrap: anywhere; }
+.msg-tik span { font-size: .8rem; text-decoration: underline; opacity: .9; }
+@media (min-width: 900px) {
+  .tik-page { height: calc(100dvh - 60px); max-width: 430px; margin: 0 auto; }
+}

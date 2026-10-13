@@ -131,6 +131,7 @@
     link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1"/><path d="M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/></svg>',
     image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m5 18 5-5 3 3 2-2 4 4"/></svg>',
     pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/></svg>',
+    share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4 10 14"/><path d="M21 4 14 20l-4-6-6-4z"/></svg>',
     dots: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
     sticker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3v-8z"/><path d="M14 3v4a3 3 0 0 0 3 3h4"/><path d="M8.5 14.500c1 1.3 2.2 2 3.5 2s2.5-.7 3.5-2"/></svg>',
     clip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m20 11-8.5 8.500a5 5 0 0 1-7-7L13 4a3.5 3.5 0 0 1 5 5l-8.3 8.300a2 2 0 0 1-2.9-2.900L14.5 7"/></svg>',
@@ -200,6 +201,7 @@
   // ---------- Modal ----------
   function openModal(html, cls = '') {
     modal.className = cls;
+    delete modal.dataset.tik;
     modal.innerHTML = html;
     modal.showModal();
   }
@@ -293,7 +295,7 @@
       save();
     }
   }
-  const preview = (m) => (!m ? 'Diga miau!' : m.deleted ? 'Mensagem apagada' : m.kind === 'image' ? '📷 Foto' : m.kind === 'video' ? '🎬 Vídeo' : m.kind === 'gif' ? 'GIF' : m.kind === 'sticker' ? 'Sticker' : m.text);
+  const preview = (m) => (!m ? 'Diga miau!' : m.deleted ? 'Mensagem apagada' : m.kind === 'image' ? '📷 Foto' : m.kind === 'tik' ? '🎬 TikCat' : m.kind === 'video' ? '🎬 Vídeo' : m.kind === 'gif' ? 'GIF' : m.kind === 'sticker' ? 'Sticker' : m.text);
   // Conversas da lista: gatos de demonstração com histórico e as outras contas deste navegador.
   const chatIds = () => [...localCats().filter((c) => !isBlocked(c.id) && !blockedMe(c)).map((c) => c.id), ...Object.keys(S.chats).filter((id) => findCat(id) && !isBlocked(id))];
 
@@ -302,6 +304,7 @@
     if (m.deleted) return `<div class="msg ${mine ? 'me' : ''} gone">Mensagem apagada</div>`;
     const body = m.kind === 'image' || m.kind === 'gif' ? `<img class="msg-media" data-media="${m.mediaId}" alt="${m.kind === 'gif' ? 'GIF enviado' : 'Foto enviada'}">`
       : m.kind === 'video' ? `<video class="msg-media" data-media="${m.mediaId}" controls playsinline preload="metadata"></video>`
+      : m.kind === 'tik' ? `<a class="msg-tik" href="#/tikcats"><b>🎬 TikCat de ${esc(m.by || '')}</b>${m.text ? `<small>${esc(m.text)}</small>` : ''}<span>Ver no TikCats</span></a>`
       : m.kind === 'sticker' ? (m.src ? `<img class="msg-sticker" src="${m.src}" alt="Sticker">` : `<span class="msg-sticker emoji">${esc(m.text)}</span>`)
       : esc(m.text);
     return `<div class="msg ${mine ? 'me' : ''} ${m.kind && m.kind !== 'text' ? 'rich' : ''}">${body}${mine ? `<button type="button" class="msg-del" data-act="msg-del" data-id="${id}" data-m="${m.id}" aria-label="Apagar para todos" title="Apagar para todos">×</button>` : ''}</div>`;
@@ -580,25 +583,48 @@
       <div class="timeline">${list.map(postCard).join('') || `<div class="card empty">Você ainda não segue ninguém. Dê uma olhada em “Para você” ou <a href="#/buscar"><u>busque gatinhos</u></a> para seguir.</div>`}</div>`;
   }
 
+  // ---------- TikCats: feed vertical de vídeos, um por tela ----------
+  let tikMuted = true;
+  function allTiks() {
+    const me = { me: true, catName: S.user.catName, username: session };
+    const mine = S.tiks.map((t) => ({ ...t, a: me, mine: true }));
+    const locals = localCats().filter((c) => !isBlocked(c.id) && !blockedMe(c)).flatMap((c) => (accountState(c.username).tiks || []).map((t) => ({ ...t, a: c })));
+    const seeds = SEED_TIKS.filter((t) => findCat(t.cat) && !isBlocked(t.cat)).map((t) => ({ ...t, a: findCat(t.cat), seed: true }));
+    return [...[...mine, ...locals].sort((x, y) => y.ts - x.ts), ...seeds];
+  }
   function viewTik() {
-    const mine = [...S.tiks].reverse().map((t) => `<article class="tik">
-        <video data-media="${t.mediaId}" loop playsinline preload="metadata" data-act="playpause"></video>
-        <div class="tik-info"><b>${esc(S.user.catName)}</b>${esc(t.caption)} <span>${esc(t.trend)}</span></div>
+    const cards = allTiks().map((t) => {
+      const liked = t.mine ? !!t.liked : S.likedSeeds.includes(t.id);
+      const likes = (t.seed ? t.likes : 0) + (liked ? 1 : 0);
+      const nCm = t.noComments ? 0 : (getComments()[t.id] || []).filter((c) => commentAuthor(c.by)).length;
+      return `<article class="tik ${t.seed ? 'demo' : ''}" ${t.seed ? `style="background:${t.bg}"` : ''}>
+        ${t.seed ? `<span class="badge">Demonstração</span><div class="demo-cat">${catPic(t.a)}</div>`
+          : `<video data-media="${t.mediaId}" loop muted playsinline preload="metadata" data-act="playpause"></video>
+             <button class="tik-mute" data-act="tik-mute" aria-label="Ligar ou desligar o som">${tikMuted ? '🔇' : '🔊'}</button>`}
+        <div class="tik-info"><b>${t.mine ? `<a href="#/perfil">${esc(t.a.catName)}</a>` : `<a href="#/gato/${t.a.id}">${esc(t.a.catName)}</a>`} <small>@${esc(t.a.username)}</small></b>
+          ${t.caption ? `<p>${esc(t.caption)}</p>` : ''}${t.trend ? `<span class="tik-tag">${esc(t.trend)}</span>` : ''}</div>
         <div class="tik-side">
-          <button class="${t.liked ? 'on' : ''}" data-act="like-tik" data-id="${t.id}" aria-label="Curtir" aria-pressed="${!!t.liked}">${I.heart}</button>
-          <button data-act="del-tik" data-id="${t.id}" aria-label="Excluir vídeo">${I.trash}</button>
-        </div></article>`).join('');
-    const seeds = SEED_TIKS.filter((t) => findCat(t.cat)).map((t) => {
-      const c = findCat(t.cat), liked = S.likedSeeds.includes(t.id);
-      return `<article class="tik demo" style="background:${t.bg}"><span class="badge">Demonstração</span>
-        <div class="demo-cat">${catPic(c).replace('<rect width="100" height="100" fill="#e6f6ff"/>', '')}</div>
-        <div class="tik-info"><b><a href="#/gato/${c.id}">${esc(c.catName)}</a></b>${esc(t.caption)} <span>${t.trend}</span></div>
-        <div class="tik-side"><button class="${liked ? 'on' : ''}" data-act="like-seed" data-id="${t.id}" aria-label="Curtir" aria-pressed="${liked}">${I.heart}</button><small>${t.likes + (liked ? 1 : 0)}</small></div></article>`;
+          <button class="${liked ? 'on' : ''}" data-act="${t.mine ? 'like-tik' : 'like-seed'}" data-id="${t.id}" aria-label="Curtir" aria-pressed="${liked}">${I.heart}</button><small>${likes}</small>
+          ${t.noComments ? '' : `<button data-act="tik-cm" data-id="${t.id}" aria-label="Comentários">${I.chat}</button><small>${nCm}</small>`}
+          ${t.allowShare === false ? '' : `<button data-act="tik-share" data-id="${t.id}" aria-label="Encaminhar">${I.share}</button>`}
+          ${t.mine ? `<button data-act="del-tik" data-id="${t.id}" aria-label="Excluir vídeo">${I.trash}</button>` : ''}
+        </div></article>`;
     }).join('');
-    return `<div class="head-row"><div><h1 class="page-title">TikCats</h1><p class="page-sub">Os vídeos e as trends mais fofas da gatosfera.</p></div>
-        <button class="btn" data-act="new-tik">+ Postar vídeo</button></div>
-      <div class="chips">${TRENDS.map((t) => `<span class="chip">${t}</span>`).join('')}</div>
-      <div class="feed">${mine}${seeds}</div>`;
+    return `<div class="tik-page">
+      <div class="tik-top"><h1 class="page-title">TikCats</h1><button class="btn small" data-act="new-tik">${I.plus} Postar vídeo</button></div>
+      <div class="chips tik-chips" aria-label="Trends">${TRENDS.map((t) => `<span class="chip">${t}</span>`).join('')}</div>
+      <div class="feed" id="tik-feed">${cards}</div></div>`;
+  }
+  // Só o vídeo que está na tela toca; os outros ficam pausados.
+  function setupTiks() {
+    const feed = document.getElementById('tik-feed');
+    if (!feed || !('IntersectionObserver' in window)) return;
+    const io = new IntersectionObserver((entries) => entries.forEach((e) => {
+      const v = e.target.querySelector('video');
+      if (!v) return;
+      if (e.intersectionRatio > 0.6) { v.muted = tikMuted; v.play().catch(() => {}); } else v.pause();
+    }), { root: feed, threshold: [0, 0.6, 1] });
+    feed.querySelectorAll('.tik').forEach((el) => io.observe(el));
   }
 
   function viewBooks() {
@@ -1156,6 +1182,7 @@
         ${isAdmin() ? `<a href="#/moderacao" class="only-mobile nav-mod ${route === 'moderacao' ? 'on' : ''}" ${route === 'moderacao' ? 'aria-current="page"' : ''}>${I.shield}<span>Moderar</span>${pendingReports().length ? `<i class="badge-n" aria-label="${pendingReports().length} pendentes">${pendingReports().length}</i>` : ''}</a>` : ''}</nav>
       <main class="main">${view}</main></div>`;
     hydrate();
+    setupTiks();
     const msgs = document.getElementById('msgs');
     if (msgs) msgs.scrollTop = msgs.scrollHeight;
   }
@@ -1295,12 +1322,42 @@
       save(); await delMedia(t.mediaId); render();
     },
     playpause: (_, el) => (el.paused ? el.play() : el.pause()),
+    'tik-mute': () => {
+      tikMuted = !tikMuted;
+      document.querySelectorAll('#tik-feed video').forEach((v) => { v.muted = tikMuted; });
+      document.querySelectorAll('.tik-mute').forEach((b) => { b.textContent = tikMuted ? '🔇' : '🔊'; });
+    },
+    'tik-cm': (id) => {
+      const t = allTiks().find((x) => x.id === id);
+      if (!t || t.noComments) return;
+      openComments.add(id);
+      const body = commentsParts({ id, mine: t.mine }).body;
+      openComments.delete(id);
+      openModal(`<h2>Comentários</h2><div class="tik-cm">${body}</div><div class="actions" style="margin-top:12px"><button class="btn ghost" data-close>Fechar</button></div>`);
+      modal.dataset.tik = id;
+    },
+    'tik-share': (id) => {
+      const t = allTiks().find((x) => x.id === id);
+      if (!t || t.allowShare === false) return;
+      const ids = chatIds();
+      openModal(`<h2>Encaminhar para…</h2>
+        ${ids.length ? `<ul class="plain-list">${ids.map((cid) => { const c = findCat(cid); return `<li><span class="avatar">${catPic(c)}</span><span class="grow"><b>${esc(c.catName)}</b><small>@${esc(c.username)}</small></span><button class="btn small" data-act="tik-send" data-id="${cid}" data-m="${id}">Enviar</button></li>`; }).join('')}</ul>` : '<p class="muted">Você ainda não tem conversas.</p>'}
+        <div class="actions" style="margin-top:14px"><button class="btn ghost" data-close>Fechar</button></div>`);
+    },
+    'tik-send': (id, el) => {
+      const t = allTiks().find((x) => x.id === el.dataset.m), c = findCat(id);
+      if (!t || !c) return;
+      sendMsg(id, { kind: 'tik', text: t.caption || '', by: t.a.catName });
+      openModal(`<h2>Enviado!</h2><p>O TikCat foi encaminhado para ${esc(c.catName)}.</p><div class="actions" style="margin-top:14px"><button class="btn" data-close>Fechar</button></div>`);
+    },
     'new-tik': () => openModal(`<form id="tik-form"><h2>Postar no TikCats</h2>
       <label class="field"><span>Vídeo</span><span class="plain"><input type="file" name="file" accept="video/*" required style="padding-top:14px"></span></label>
       <label class="field"><span>Legenda</span><span class="plain"><input name="caption" maxlength="120" required></span></label>
       <label class="field"><span>Tag</span><span class="plain"><input name="trend" list="trends" maxlength="30" placeholder="#SuaTag ou escolha uma trend" autocomplete="off" autocapitalize="none" spellcheck="false"></span>
         <small class="hint">Opcional. Crie a sua ou use uma das trends.</small></label>
       <datalist id="trends">${TRENDS.map((t) => `<option value="${t}">`).join('')}</datalist>
+      <label class="check" style="margin-left:0"><input type="checkbox" name="comments" checked> Permitir comentários</label>
+      <label class="check" style="margin:8px 0 0"><input type="checkbox" name="share" checked> Permitir que encaminhem este vídeo</label>
       <p class="error" role="alert"></p>
       <div class="actions"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Postar</button></div></form>`),
     'new-album': () => openModal(`<form id="album-form"><h2>Novo álbum</h2>
@@ -1589,7 +1646,8 @@
     'cm-del': (id, el) => {
       const all = getComments();
       all[id] = (all[id] || []).filter((c) => c.id !== el.dataset.m);
-      localStorage.setItem(CKEY, JSON.stringify(all)); render();
+      localStorage.setItem(CKEY, JSON.stringify(all)); rerender();
+      if (modal.open && modal.dataset.tik === id) actions['tik-cm'](id);
     },
     people: (kind, el) => {
       const target = el.dataset.m, list = peopleOf(kind, target), c = target === 'me' ? null : findCat(target);
@@ -1623,6 +1681,7 @@
   };
 
   // Curtir não deve fazer o feed voltar ao topo.
+  const rerender = () => (document.getElementById('tik-feed') ? keepFeed() : render());
   function keepFeed() {
     const y = document.querySelector('.feed')?.scrollTop ?? 0;
     save(); render();
@@ -1769,7 +1828,8 @@
       const all = getComments();
       (all[f.dataset.id] = all[f.dataset.id] || []).push({ id: uid(), by: session, text, ts: Date.now() });
       try { localStorage.setItem(CKEY, JSON.stringify(all)); } catch { alert('Não foi possível salvar o comentário: o espaço deste navegador está cheio.'); }
-      render();
+      rerender();
+      if (modal.open && modal.dataset.tik === f.dataset.id) actions['tik-cm'](f.dataset.id);
       return;
     }
 
@@ -1816,7 +1876,7 @@
       if (file.size > 80 * 1024 * 1024) { err.textContent = 'Vídeo muito grande (máximo 80 MB).'; return; }
       try {
         const mediaId = await putMedia(file);
-        S.tiks.push({ id: uid(), mediaId, caption: str('caption'), trend: cleanTag(str('trend')), liked: false, ts: Date.now() });
+        S.tiks.push({ id: uid(), mediaId, caption: str('caption'), trend: cleanTag(str('trend')), liked: false, noComments: !d.comments, allowShare: !!d.share, ts: Date.now() });
         save(); modal.close(); render();
       } catch { err.textContent = 'Não foi possível salvar o vídeo neste navegador.'; }
     }
