@@ -819,3 +819,71 @@ dialog.rich-modal { width: min(96vw, 560px); padding: 16px; }
   .pf-actions .btn { flex: 1; min-height: 40px; padding: 0 10px; font-size: .9rem; }
   .pf-actions .icon-btn { flex: none; }
 }
+
+/* ---------- Fundo em shader ---------- */
+#bg-fx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; display: block; }
+body.has-fx::before, body.has-fx::after { display: none; }
+body.page-themed #bg-fx { display: none; }
+
+/* ---------- Tela de abertura ---------- */
+.welcome { --sc: 0; max-width: 880px; margin: 0 auto; padding: 0 20px 80px; }
+.wl-hero { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 10px; position: relative; padding: 40px 0 70px; }
+.wl-logo { transform: translateY(calc(var(--sc) * -60px)) scale(calc(1 - var(--sc) * .25)) rotate(calc(var(--sc) * -6deg)); opacity: calc(1 - var(--sc) * .9); will-change: transform; animation: wl-pop .9s cubic-bezier(.2, 1.3, .4, 1) both; }
+.wl-logo .logo { font-size: clamp(2.6rem, 11vw, 4.4rem); flex-direction: column; gap: .1em; }
+.wl-logo .logo-mark { width: 3em; height: 3em; animation: wl-float 5s ease-in-out infinite; }
+.wl-logo .logo-word { height: 1em; }
+.wl-hero h1 { font-size: clamp(1.3rem, 4.6vw, 2rem); color: var(--ink); max-width: 16em; line-height: 1.25; animation: wl-up .7s .25s both; }
+.wl-hero .tagline { animation: wl-up .7s .15s both; }
+.wl-cta { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: center; margin-top: 14px; animation: wl-up .7s .4s both; }
+.wl-cta .btn-big { width: auto; margin: 0; padding: 0 34px; }
+.wl-cta .btn.ghost { min-height: 58px; padding: 0 26px; background: rgba(255, 255, 255, .8); }
+.wl-scroll { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); display: grid; justify-items: center; gap: 2px; color: var(--blue-d); font-weight: 700; font-size: .85rem; opacity: calc(1 - var(--sc) * 3); }
+.wl-scroll i { font-style: normal; animation: wl-bounce 1.4s ease-in-out infinite; }
+.wl-feat { display: flex; align-items: center; gap: 22px; margin: 0 0 22px; padding: 26px; border-radius: var(--radius); background: rgba(255, 255, 255, .78); backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3); box-shadow: 0 10px 34px rgba(79, 147, 184, .16); }
+.wl-feat.alt { flex-direction: row-reverse; text-align: right; }
+.wl-icon { flex: none; width: 96px; height: 96px; border-radius: 28px; display: grid; place-items: center; background: linear-gradient(140deg, var(--blue), #8ea2ff); color: #fff; box-shadow: 0 10px 22px rgba(106, 173, 207, .45); }
+.wl-icon svg { width: 54px; height: 44px; }
+.wl-feat h2 { font-size: 1.5rem; color: var(--ink); }
+.wl-feat p { margin-top: 4px; line-height: 1.5; font-size: 1.05rem; }
+.wl-end { text-align: center; padding: 50px 0 10px; }
+.wl-end h2 { font-size: clamp(1.4rem, 5vw, 2.1rem); color: var(--white); text-shadow: 2px 2px 0 var(--blue); }
+.reveal { opacity: 0; transform: translateY(46px) scale(.96); transition: opacity .7s ease, transform .7s cubic-bezier(.2, .9, .3, 1); }
+.reveal.alt { transform: translateX(46px) scale(.96); }
+.reveal:not(.alt).wl-feat { transform: translateX(-46px) scale(.96); }
+.reveal.in { opacity: 1; transform: none !important; }
+@keyframes wl-pop { from { opacity: 0; transform: scale(.6) rotate(-8deg); } }
+@keyframes wl-up { from { opacity: 0; transform: translateY(18px); } }
+@keyframes wl-float { 50% { transform: translateY(-10px) rotate(3deg); } }
+@keyframes wl-bounce { 50% { transform: translateY(6px); } }
+@media (max-width: 560px) {
+  .wl-feat, .wl-feat.alt { flex-direction: column; text-align: center; padding: 22px 18px; gap: 14px; }
+  .wl-icon { width: 80px; height: 80px; }
+}
+
+/* ---------- Acabamento: vidro, botões e transições ---------- */
+.nav, .icon-btn, .tabs, .chip, .dock-list, .search-box { background: rgba(255, 255, 255, .8); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4); }
+.chip.on { background: var(--blue); }
+.icon-btn.soft, .icon-btn.on { background: var(--sky-3); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.btn { position: relative; overflow: hidden; transition: background .15s, transform .12s, box-shadow .15s; }
+.btn:not(.ghost):not(.danger) { box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--blue-d) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, .35); }
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: scale(.96); }
+.btn:not(.ghost):not(.danger)::after { content: ''; position: absolute; top: 0; bottom: 0; left: -60%; width: 40%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .45), transparent); transform: skewX(-20deg); transition: left .5s ease; pointer-events: none; }
+.btn:not(.ghost):not(.danger):hover::after { left: 120%; }
+.icon-btn, .chip, .like, .nav a, .tabs button, .tik-side button { transition: transform .12s, background .15s, color .15s; }
+.icon-btn:active, .like:active, .tik-side button:active { transform: scale(.88); }
+.nav a:active { transform: scale(.94); }
+.card.post, .album, .twin, .shop-card, .fact { transition: transform .18s ease, box-shadow .18s ease; }
+@media (hover: hover) { .album:hover, .shop-card:hover { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(79, 147, 184, .2); } }
+.main.route-in > * { animation: route-in .32s cubic-bezier(.2, .8, .3, 1) both; }
+.main.route-in > *:nth-child(2) { animation-delay: .04s; }
+.main.route-in > *:nth-child(3) { animation-delay: .08s; }
+.main.route-in > *:nth-child(n+4) { animation-delay: .12s; }
+@keyframes route-in { from { opacity: 0; transform: translateY(14px); } }
+dialog[open] { animation: modal-in .22s cubic-bezier(.2, 1.1, .4, 1); }
+dialog[open]::backdrop { animation: fade-in .2s ease; }
+@keyframes modal-in { from { opacity: 0; transform: translateY(16px) scale(.97); } }
+@keyframes fade-in { from { opacity: 0; } }
+body.no-motion .reveal { opacity: 1; transform: none; transition: none; }
+body.no-motion .wl-logo, body.no-motion .wl-logo .logo-mark, body.no-motion .main.route-in > *, body.no-motion dialog[open] { animation: none; }
+@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; } }

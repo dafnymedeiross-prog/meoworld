@@ -240,7 +240,7 @@
   // ---------- Telas ----------
   const breedList = `<datalist id="breeds">${BREEDS.map((b) => `<option value="${esc(b)}">`).join('')}</datalist>`;
 
-  let authView = Object.keys(accounts).length ? 'login' : 'account';
+  let authView = Object.keys(accounts).length ? 'login' : 'welcome';
   let pendingLink = null; // conta que pediu para criar outra: as duas ficam conectadas ao terminar o cadastro
   let pending = null; // { username, password } entre o passo 1 e o passo 2
 
@@ -257,6 +257,7 @@
         <p class="error" role="alert"></p>
         <button class="btn btn-big">Entrar</button>
         <p class="switch">Ainda não tem conta? <button type="button" class="link" data-act="go-account">Meowdastre-se</button></p>
+        <p class="switch" style="margin-top:4px"><button type="button" class="link" data-act="go-welcome">← Conhecer o MEOWorld</button></p>
       </form>`);
   }
 
@@ -294,7 +295,7 @@
         <p class="switch"><button type="button" class="link" data-act="go-account">← Voltar</button></p>
       </form>`);
   }
-  const viewAuth = () => (authView === 'login' ? viewLogin() : authView === 'cat' && pending ? viewSignup() : viewAccount());
+  const viewAuth = () => (authView === 'welcome' ? viewWelcome() : authView === 'login' ? viewLogin() : authView === 'cat' && pending ? viewSignup() : viewAccount());
 
   // ---------- C(h)ats: mensagens, mídia, stickers, cor, "miaugitando" e apagar para todos ----------
   const EMOJIS = ['😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🐱', '🐈', '🐾', '❤️', '💙', '💛', '💜', '🧡', '✨', '🎉', '😂', '🥰', '😍', '😎', '😴', '🤔', '👍', '👏', '🙏', '🔥', '🐟', '🥛', '🧶', '📦', '🌙', '☀️', '🌈'];
@@ -1103,6 +1104,99 @@
       <p class="muted" style="margin-top:14px">Em modo de teste local, o painel só enxerga denúncias feitas neste navegador. Suspender impede o login da conta e a esconde de todos; remover post o apaga da timeline.</p>`;
   }
 
+  // ---------- Tela de abertura (antes do cadastro), com animações ao rolar ----------
+  function viewWelcome() {
+    const feats = [
+      [I.home, 'Timeline', 'Fotos, posts estilo blog e as novidades dos gatinhos que você segue, tudo num lugar só.'],
+      [I.tik, 'TikCats', 'Vídeos em tela cheia, um atrás do outro, com as trends mais fofas da gatosfera.'],
+      [I.twin, 'TwinCats', 'Envie uma foto e a IA procura os gatinhos mais parecidos com o seu. Será que ele tem um sósia?'],
+      [I.book, 'CatBooks', 'Álbuns para guardar os melhores cliques, com legenda em cada foto.'],
+      [I.curious, 'CuriousCats', `${FACTS.length} curiosidades: das fofuras aos cuidados de saúde, alimentação e viagem.`],
+      [I.chat, 'C(h)ats', 'Meow-papo com emojis, stickers, fotos e GIFs entre tutores.']
+    ];
+    return `<div class="welcome">
+      <section class="wl-hero">
+        <div class="wl-logo">${LOGO}</div>
+        <p class="tagline">Venha ronronar com nós!</p>
+        <h1>A rede social de quem ama gatos</h1>
+        <div class="wl-cta"><button class="btn btn-big" data-act="go-account">Meowdastre-se</button><button class="btn ghost" data-act="go-login">Já tenho conta</button></div>
+        <span class="wl-scroll" aria-hidden="true">role para conhecer<i>↓</i></span>
+      </section>
+      ${feats.map(([ic, t, d], i) => `<section class="wl-feat reveal ${i % 2 ? 'alt' : ''}"><span class="wl-icon">${ic}</span><div><h2>${t}</h2><p>${d}</p></div></section>`).join('')}
+      <section class="wl-end reveal"><h2>Seu gatinho merece um perfil</h2>
+        <div class="wl-cta"><button class="btn btn-big" data-act="go-account">Meowdastre-se</button><button class="btn ghost" data-act="go-login">Já tenho conta</button></div></section>
+    </div>`;
+  }
+  // Revela as seções conforme entram na tela e move o logo com a rolagem.
+  function setupWelcome() {
+    const w = document.querySelector('.welcome');
+    if (!w) return;
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.25 });
+      w.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+    } else w.querySelectorAll('.reveal').forEach((el) => el.classList.add('in'));
+    onWelcomeScroll();
+  }
+  function onWelcomeScroll() {
+    const w = document.querySelector('.welcome');
+    if (w) w.style.setProperty('--sc', Math.min(1, window.scrollY / Math.max(1, window.innerHeight * 0.8)).toFixed(3));
+  }
+  window.addEventListener('scroll', onWelcomeScroll, { passive: true });
+
+  // ---------- Fundo animado em shader (WebGL), leve: desenhado em baixa resolução e a ~30 quadros por segundo ----------
+  function initFx() {
+    const cv = Object.assign(document.createElement('canvas'), { id: 'bg-fx' });
+    cv.setAttribute('aria-hidden', 'true');
+    const gl = cv.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'low-power' });
+    if (!gl) return;
+    const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null; };
+    const vs = sh(gl.VERTEX_SHADER, 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}');
+    const fs = sh(gl.FRAGMENT_SHADER, `precision mediump float;uniform vec2 r;uniform float t;
+      void main(){vec2 p=gl_FragCoord.xy/r*2.-1.;p.x*=r.x/r.y;float a=t*.11;vec2 q=p;
+        q+=.35*vec2(sin(q.y*1.7+a*1.3),cos(q.x*1.5-a));
+        q+=.25*vec2(sin(q.y*3.1-a*1.7+1.),cos(q.x*2.7+a*1.1+2.));
+        float n1=.5+.5*sin(q.x*1.6+a)*cos(q.y*1.4-a*.7);
+        float n2=.5+.5*sin((q.x+q.y)*1.2-a*1.4+1.5);
+        float n3=.5+.5*cos(length(q-vec2(.4*sin(a),.3*cos(a*.8)))*2.4-a);
+        vec3 c=vec3(.79,.925,1.);
+        c=mix(c,vec3(.56,.82,.98),n1*.75);
+        c=mix(c,vec3(.72,.76,1.),n2*.55);
+        c=mix(c,vec3(.61,.91,.93),n3*.5);
+        c=mix(c,vec3(.9,.97,1.),smoothstep(.75,1.,n1*n2+n3*.3)*.6);
+        gl_FragColor=vec4(c,1.);}`);
+    if (!vs || !fs) return;
+    const pr = gl.createProgram();
+    gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
+    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return;
+    gl.useProgram(pr);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(pr, 'p');
+    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    const uR = gl.getUniformLocation(pr, 'r'), uT = gl.getUniformLocation(pr, 't');
+    document.body.prepend(cv);
+    document.body.classList.add('has-fx');
+    const size = () => { cv.width = Math.max(2, Math.round(window.innerWidth / 3)); cv.height = Math.max(2, Math.round(window.innerHeight / 3)); gl.viewport(0, 0, cv.width, cv.height); drawn = -1; };
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let last = 0, drawn = -1, clock = 0;
+    const draw = () => { gl.uniform2f(uR, cv.width, cv.height); gl.uniform1f(uT, clock); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); drawn = clock; };
+    size();
+    window.addEventListener('resize', size);
+    cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); document.body.classList.remove('has-fx'); cv.remove(); });
+    const loop = (now) => {
+      requestAnimationFrame(loop);
+      const b = document.body.classList;
+      if (document.hidden || b.contains('page-themed')) { last = now; return; }
+      const paused = b.contains('no-motion') || still.matches;
+      if (now - last < 33 && drawn >= 0) return;
+      if (!paused) clock += Math.min(0.1, (now - last) / 1000);
+      last = now;
+      if (!paused || drawn !== clock) draw();
+    };
+    requestAnimationFrame(loop);
+  }
+  try { initFx(); } catch (e) { console.warn('MEOWorld: fundo animado indisponível', e); }
+
   // ---------- Roteamento ----------
   const NAV = [['', 'Início', I.home], ['tikcats', 'TikCats', I.tik], ['catbooks', 'CatBooks', I.book], ['twincats', 'TwinCats', I.twin], ['curiouscats', 'Curious', I.curious]];
 
@@ -1221,7 +1315,7 @@
   function render() {
     applyPrefs();
     renderDock();
-    if (!session || !S.user) { document.body.classList.remove('page-themed'); document.body.style.cssText = ''; app.innerHTML = viewAuth(); return; }
+    if (!session || !S.user) { document.body.classList.remove('page-themed'); document.body.style.cssText = ''; app.innerHTML = viewAuth(); setupWelcome(); return; }
     const [route = '', arg] = location.hash.replace(/^#\/?/, '').split('/');
     const views = {
       '': viewHome, tikcats: viewTik, catbooks: () => (arg ? viewAlbum(arg) : viewBooks()), twincats: viewTwins,
@@ -1252,7 +1346,12 @@
     const msgs = document.getElementById('msgs');
     if (msgs) msgs.scrollTop = msgs.scrollHeight;
   }
-  window.addEventListener('hashchange', () => { if (modal.open) modal.close(); render(); window.scrollTo(0, 0); });
+  window.addEventListener('hashchange', () => {
+    if (modal.open) modal.close();
+    render(); window.scrollTo(0, 0);
+    const m = document.querySelector('.main');
+    if (m) m.classList.add('route-in');
+  });
 
   // ---------- Ações ----------
   // ---------- Editar perfil (rascunho) e ajuste de foto/capa ----------
@@ -1473,7 +1572,7 @@
       try { draft[crop.kind] = cropResult(); showEdit(); }
       catch (e) { console.error('MEOWorld: recorte', e); alert('Não consegui usar essa imagem: ' + ((e && e.message) || e)); }
     },
-    'go-login': () => { authView = 'login'; pendingLink = null; render(); },
+    'go-login': () => { authView = 'login'; pendingLink = null; render(); window.scrollTo(0, 0); },
     accounts: () => accountsModal(),
     'acc-switch': (id) => { if (linkedOf(session).includes(id)) switchTo(id); },
     'acc-new': () => {
@@ -1481,7 +1580,8 @@
       modal.close();
       setSession(null); authView = 'account'; pending = null; location.hash = ''; render(); window.scrollTo(0, 0);
     },
-    'go-account': () => { authView = 'account'; render(); },
+    'go-account': () => { authView = 'account'; render(); window.scrollTo(0, 0); },
+    'go-welcome': () => { authView = 'welcome'; pendingLink = null; render(); window.scrollTo(0, 0); },
     'toggle-pw': (_, el) => el.form.querySelectorAll('[name=password], [name=confirm]').forEach((i) => { i.type = el.checked ? 'text' : 'password'; }),
     set: (id, el) => { S.settings[id] = el.checked; save(); applyPrefs(); },
     'dock-toggle': () => { dockOpen = !dockOpen; renderDock(); },
@@ -1749,7 +1849,7 @@
       try { await Promise.all(media.map(delMedia)); } catch { /* sem mídia para limpar */ }
       localStorage.removeItem(`${KEY}:${session}`);
       delete accounts[session]; saveAccounts();
-      setSession(null); authView = Object.keys(accounts).length ? 'login' : 'account';
+      setSession(null); authView = Object.keys(accounts).length ? 'login' : 'welcome';
       location.hash = ''; render();
     }
   };
