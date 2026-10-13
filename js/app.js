@@ -13,6 +13,7 @@
     likedSeeds: [],
     posts: [],           // { id, mediaId, caption, ts }
     likedPosts: [],
+    linked: [],          // outras contas conectadas neste aparelho (troca sem digitar a senha)
     onboard: false,      // lista de primeiros passos (ligada no cadastro)
     chatColors: {},      // cor de cada conversa com gatos de demonstração
     stickers: [],        // { id, src } criados pela pessoa
@@ -233,6 +234,7 @@
   const breedList = `<datalist id="breeds">${BREEDS.map((b) => `<option value="${esc(b)}">`).join('')}</datalist>`;
 
   let authView = Object.keys(accounts).length ? 'login' : 'account';
+  let pendingLink = null; // conta que pediu para criar outra: as duas ficam conectadas ao terminar o cadastro
   let pending = null; // { username, password } entre o passo 1 e o passo 2
 
   const authShell = (inner) => `<div class="signup">
@@ -911,7 +913,7 @@
     const albums = S.albums.slice(0, 4).map((a) => `<a class="album" href="#/catbooks/${a.id}"><div class="cover">${a.items[0] ? `<img data-media="${a.items[0]}" alt="">` : I.book}</div><b>${esc(a.name)}</b></a>`).join('');
     const photos = S.albums.reduce((n, a) => n + a.items.length, 0);
     return pfPage(S.user.theme, `${profileHTML({ ...S.user, owner: S.settings.showOwner ? S.user.owner : '', hideBirth: !S.settings.showBirth }, S.user.photo ? userFace() : catFace(S.user.coat), true,
-        `<span class="pf-actions"><button class="btn" data-act="edit-profile">Editar perfil</button></span>`,
+        `<span class="pf-actions"><button class="btn" data-act="edit-profile">Editar perfil</button><button class="btn ghost" data-act="accounts">Trocar de conta</button></span>`,
         [[S.posts.length, S.posts.length === 1 ? 'post' : 'posts'], [localFollowers('u:' + session), 'seguidores', ['followers', 'me']], [S.following.filter(findCat).length, 'seguindo', ['following', 'me']], [S.albums.length, S.albums.length === 1 ? 'álbum' : 'álbuns'], [photos, photos === 1 ? 'foto' : 'fotos'], [S.tiks.length, S.tiks.length === 1 ? 'vídeo' : 'vídeos']])}
       ${onboardHTML()}
       ${postsSection(allPosts().filter((p) => p.mine), 'Seus posts aparecem aqui. <button class="link" data-act="new-rich">Criar o primeiro</button>')}
@@ -1010,7 +1012,7 @@
         </section>
         <section class="card"><h2>Sessão</h2>
           <p>Sair não apaga nada: seu perfil, álbuns e conversas continuam guardados neste navegador.</p>
-          <button class="btn ghost" data-act="logout">Sair da conta</button>
+          <button class="btn" data-act="accounts">Trocar ou adicionar conta</button> <button class="btn ghost" data-act="logout">Sair da conta</button>
         </section>
         <section class="card danger-zone"><h2>Excluir conta</h2>
           <p>Apaga o perfil, os álbuns, os vídeos e as conversas de @${esc(u.username || session)} neste navegador. Não dá para desfazer.</p>
@@ -1171,6 +1173,42 @@
   // "#Minha Tag!" -> "#MinhaTag": sem espaços nem símbolos, sempre com # na frente.
   const cleanTag = (t) => { const w = String(t).replace(/[^\p{L}\p{N}_]/gu, ''); return w ? '#' + w.slice(0, 28) : ''; };
 
+  // ---------- Várias contas conectadas (um gatinho por conta) ----------
+  const linkedOf = (name) => ((name === session ? S : readJSON(`${KEY}:${name}`, {})).linked || []).filter((n) => accounts[n] && n !== name);
+  // Conecta duas contas e tudo o que já estava conectado a cada uma.
+  function linkAccounts(a, b) {
+    const group = [...new Set([a, b, ...linkedOf(a), ...linkedOf(b)])].filter((n) => accounts[n]);
+    group.forEach((n) => {
+      const st = n === session ? S : readJSON(`${KEY}:${n}`, null);
+      if (!st) return;
+      st.linked = group.filter((x) => x !== n);
+      if (n === session) save(); else localStorage.setItem(`${KEY}:${n}`, JSON.stringify(st));
+    });
+  }
+  function switchTo(name) {
+    if (getMod().suspended[name]) { alert('Esta conta foi suspensa pela moderação.'); return; }
+    if (modal.open) modal.close();
+    dockChat = null; dockOpen = false;
+    setSession(name);
+    location.hash = '#/perfil';
+    render(); window.scrollTo(0, 0);
+  }
+  function accountsModal(error = '') {
+    const list = linkedOf(session);
+    const row = (name, current) => { const u = (name === session ? S : readJSON(`${KEY}:${name}`, {})).user || {};
+      return `<li><span class="avatar">${u.photo ? `<img src="${u.photo}" alt="">` : catSVG(u.coat)}</span><span class="grow"><b>${esc(u.catName || name)}</b><small>@${esc(name)}</small></span>
+        ${current ? '<span class="tag-real">em uso</span>' : `<button class="btn small" data-act="acc-switch" data-id="${esc(name)}">Usar</button>`}</li>`; };
+    openModal(`<h2>Suas contas</h2>
+      <ul class="plain-list">${row(session, true)}${list.map((n) => row(n, false)).join('')}</ul>
+      <p class="muted" style="margin:12px 0">Contas conectadas trocam entre si sem pedir a senha, neste aparelho.</p>
+      <button class="btn" data-act="acc-new" style="width:100%">+ Criar conta para outro gatinho</button>
+      <form id="acc-add-form" style="margin-top:16px"><b>Já tem outra conta? Conecte aqui</b>
+        <label class="field" style="margin-top:8px"><span>Usuário</span><span class="plain"><input name="username" maxlength="20" required autocomplete="username" autocapitalize="none" spellcheck="false"></span></label>
+        <label class="field"><span>Senha</span><span class="plain"><input name="password" type="password" maxlength="64" required autocomplete="current-password"></span></label>
+        <p class="error" role="alert">${esc(error)}</p>
+        <div class="actions"><button type="button" class="btn ghost" data-close>Fechar</button><button class="btn">Conectar e usar</button></div></form>`);
+  }
+
   const applyPrefs = () => document.body.classList.toggle('no-motion', !!session && !S.settings.motion);
 
   function render() {
@@ -1199,6 +1237,7 @@
         ${isAdmin() ? `<a href="#/moderacao" class="only-desktop ${route === 'moderacao' ? 'on' : ''}" ${route === 'moderacao' ? 'aria-current="page"' : ''}>${I.shield}<span>Moderação${pendingReports().length ? ` <i class="badge-n">${pendingReports().length}</i>` : ''}</span></a>` : ''}
         <a href="#/config" class="nav-cfg only-desktop ${route === 'config' ? 'on' : ''}" ${route === 'config' ? 'aria-current="page"' : ''}>${I.gear}<span>Configurações</span></a>
         <a href="#/perfil" class="nav-me only-desktop ${route === 'perfil' ? 'on' : ''}" ${route === 'perfil' ? 'aria-current="page"' : ''}><span class="avatar">${userFace()}</span><span><b>${esc(S.user.catName)}</b><small>@${esc(S.user.username || 'perfil')}</small></span></a>
+        <button class="nav-switch only-desktop" data-act="accounts">⇄ Trocar de conta${linkedOf(session).length ? ` (${linkedOf(session).length + 1})` : ''}</button>
         ${isAdmin() ? `<a href="#/moderacao" class="only-mobile nav-mod ${route === 'moderacao' ? 'on' : ''}" ${route === 'moderacao' ? 'aria-current="page"' : ''}>${I.shield}<span>Moderar</span>${pendingReports().length ? `<i class="badge-n" aria-label="${pendingReports().length} pendentes">${pendingReports().length}</i>` : ''}</a>` : ''}</nav>
       <main class="main">${view}</main></div>`;
     hydrate();
@@ -1427,7 +1466,14 @@
       try { draft[crop.kind] = cropResult(); showEdit(); }
       catch (e) { console.error('MEOWorld: recorte', e); alert('Não consegui usar essa imagem: ' + ((e && e.message) || e)); }
     },
-    'go-login': () => { authView = 'login'; render(); },
+    'go-login': () => { authView = 'login'; pendingLink = null; render(); },
+    accounts: () => accountsModal(),
+    'acc-switch': (id) => { if (linkedOf(session).includes(id)) switchTo(id); },
+    'acc-new': () => {
+      pendingLink = session;
+      modal.close();
+      setSession(null); authView = 'account'; pending = null; location.hash = ''; render(); window.scrollTo(0, 0);
+    },
     'go-account': () => { authView = 'account'; render(); },
     'toggle-pw': (_, el) => el.form.querySelectorAll('[name=password], [name=confirm]').forEach((i) => { i.type = el.checked ? 'text' : 'password'; }),
     set: (id, el) => { S.settings[id] = el.checked; save(); applyPrefs(); },
@@ -1743,6 +1789,12 @@
         const st = readJSON(`${KEY}:${other}`, null);
         if (st && (st.following || []).includes('u:' + old)) { st.following = st.following.map((x) => (x === 'u:' + old ? 'u:' + name : x)); localStorage.setItem(`${KEY}:${other}`, JSON.stringify(st)); }
       }
+      // as contas conectadas passam a apontar para o nome novo
+      for (const other of Object.keys(accounts)) {
+        if (other === name) continue;
+        const st = readJSON(`${KEY}:${other}`, null);
+        if (st && (st.linked || []).includes(old)) { st.linked = st.linked.map((x) => (x === old ? name : x)); localStorage.setItem(`${KEY}:${other}`, JSON.stringify(st)); }
+      }
       session = name; localStorage.setItem(SES, name);
       render();
       const msg = document.querySelector('#user-form .error');
@@ -1764,10 +1816,21 @@
       return;
     }
 
+    if (f.id === 'acc-add-form') {
+      const name = str('username').toLowerCase(), acc = accounts[name];
+      if (name === session) { err.textContent = 'Você já está nessa conta.'; return; }
+      if (!acc || (await hashPw(String(d.password || ''), acc.salt)) !== acc.hash) { err.textContent = 'Usuário ou senha incorretos.'; return; }
+      if (getMod().suspended[name]) { err.textContent = 'Esta conta foi suspensa pela moderação.'; return; }
+      linkAccounts(session, name);
+      switchTo(name);
+      return;
+    }
+
     if (f.id === 'login') {
       const name = str('username').toLowerCase(), acc = accounts[name];
       if (!acc || (await hashPw(String(d.password || ''), acc.salt)) !== acc.hash) { err.textContent = 'Usuário ou senha incorretos.'; return; }
       if (getMod().suspended[name]) { err.textContent = 'Esta conta foi suspensa pela moderação.'; return; }
+      pendingLink = null;
       setSession(name); render();
       return;
     }
@@ -1801,7 +1864,11 @@
       S.user = Object.assign({ coat: COATS[0].color, bio: '', photo: '' }, S.user, u, f.id === 'profile-form' ? { coat: str('coat') || S.user.coat, bio: str('bio'), photo: (draft && draft.photo) || '', cover: (draft && draft.cover) || '', theme: (draft && draft.theme) || null } : {});
       draft = null;
       // Depois do cadastro, a pessoa cai no próprio perfil, com a lista de primeiros passos.
-      if (f.id === 'signup') { S.onboard = true; location.hash = '#/perfil'; }
+      if (f.id === 'signup') {
+        S.onboard = true; location.hash = '#/perfil';
+        if (pendingLink && accounts[pendingLink]) linkAccounts(pendingLink, session);
+        pendingLink = null;
+      }
       save(); modal.open && modal.close(); render();
     }
 

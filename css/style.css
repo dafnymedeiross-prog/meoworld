@@ -800,3 +800,8 @@ dialog.rich-modal { width: min(96vw, 560px); padding: 16px; }
 
 #toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 2147483647; padding: 10px 18px; border-radius: 999px; background: #1d3442; color: #fff; font-weight: 700; box-shadow: 0 6px 20px rgba(0, 0, 0, .3); }
 #toast[hidden] { display: none; }
+
+/* ---------- Trocar de conta ---------- */
+.nav-switch { display: block; width: 100%; padding: 6px 8px 2px; text-align: left; font-family: var(--display); font-weight: 600; font-size: .82rem; color: var(--blue-d); border-radius: 10px; }
+.nav-switch:hover { text-decoration: underline; }
+.pf-actions { flex-wrap: wrap; }
