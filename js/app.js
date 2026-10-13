@@ -130,6 +130,7 @@
     shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.500c0 4.5 3 8 7.5 9.5 4.5-1.5 7.5-5 7.5-9.500V6z"/><path d="m9 12 2.2 2.200L15.2 10"/></svg>',
     link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1"/><path d="M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/></svg>',
     image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m5 18 5-5 3 3 2-2 4 4"/></svg>',
+    pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/></svg>',
     dots: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
     sticker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3v-8z"/><path d="M14 3v4a3 3 0 0 0 3 3h4"/><path d="M8.5 14.500c1 1.3 2.2 2 3.5 2s2.5-.7 3.5-2"/></svg>',
     clip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m20 11-8.5 8.500a5 5 0 0 1-7-7L13 4a3.5 3.5 0 0 1 5 5l-8.3 8.300a2 2 0 0 1-2.9-2.900L14.5 7"/></svg>',
@@ -411,12 +412,14 @@
   }
 
   let richSel = null, richMedia = [], richDone = false;
-  function openRich() {
+  let richKeep = [], richEdit = null; // ao editar: imagens que o post já tinha e o id dele
+  function openRich(post = null) {
     richSel = null; richMedia = []; richDone = false;
+    richKeep = post ? postMedia(post) : []; richEdit = post ? post.id : null;
     openModal(`<form id="rich-form" class="rich-form">
       <div class="rich-author"><span class="avatar">${userFace()}</span><b>${esc(S.user.catName)}</b></div>
-      <div id="rich-editor" class="rich rich-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Conteúdo do post" data-ph="Conte o que o seu gatinho aprontou…"><p class="rs-normal"><br></p></div>
-      <label class="rich-tags"><span aria-hidden="true">#</span><input name="tags" maxlength="120" placeholder="Tags separadas por espaço" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Tags"></label>
+      <div id="rich-editor" class="rich rich-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Conteúdo do post" data-ph="Conte o que o seu gatinho aprontou…">${post ? '' : '<p class="rs-normal"><br></p>'}</div>
+      <label class="rich-tags"><span aria-hidden="true">#</span><input name="tags" maxlength="120" placeholder="Tags separadas por espaço" value="${post ? esc((post.tags || []).join(' ')) : ''}" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Tags"></label>
       <div class="rich-styles" id="rich-styles" hidden>${RICH_STYLES.map(([k, n]) => `<button type="button" class="rs-${k}" data-act="rich-style" data-id="${k}">${n}</button>`).join('')}</div>
       <div class="rich-colors" role="group" aria-label="Cor do texto"><button type="button" class="tc-btn" data-act="rich-color" data-id="default" style="background:#2b3f4c" aria-label="Cor padrão"></button>${TEXT_COLORS.map((c, i) => `<button type="button" class="tc-btn" data-act="rich-color" data-id="${c}" style="background:${c}" aria-label="Cor ${i + 1}"></button>`).join('')}</div>
       <div class="rich-bar" role="toolbar" aria-label="Formatação">
@@ -427,13 +430,25 @@
         <button type="button" data-act="rich-link" aria-label="Link">${I.link}</button>
         <button type="button" data-act="rich-img" aria-label="Fotos ou GIFs">${I.image}</button>
         <span class="grow"></span>
-        <button type="button" class="btn small ghost" data-close>Cancelar</button><button class="btn small">Postar</button>
+        <button type="button" class="btn small ghost" data-close>Cancelar</button><button class="btn small">${post ? 'Salvar' : 'Postar'}</button>
       </div>
+      <label class="check" style="margin-left:0"><input type="checkbox" name="comments" ${!post || !post.noComments ? 'checked' : ''}> Permitir comentários neste post</label>
       <p class="error" role="alert"></p></form>`, 'rich-modal');
     const ed = document.getElementById('rich-editor');
     try { document.execCommand('defaultParagraphSeparator', false, 'p'); document.execCommand('styleWithCSS', false, false); } catch { /* navegador sem suporte: segue com o padrão */ }
     // Colar sempre como texto puro, para não trazer formatação (ou código) de fora.
     ed.addEventListener('paste', (e) => { e.preventDefault(); document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain')); });
+    if (post) (async () => {
+      for (const b of post.blocks || []) {
+        if (b.t === 'img') {
+          const row = richNewRow();
+          if (b.stack) row.classList.add('stack');
+          for (const id of b.ids) row.insertBefore(await richFig(id), row.querySelector('.row-ctl'));
+          ed.appendChild(row); richFixRow(row);
+        } else { const el = document.createElement('p'); el.className = 'rs-' + b.s; el.innerHTML = cleanHTML(b.h); ed.appendChild(el); }
+      }
+      ed.appendChild(Object.assign(document.createElement('p'), { className: 'rs-normal', innerHTML: '<br>' }));
+    })();
     ed.focus();
   }
   // A seleção do texto é guardada, porque tocar nos botões da barra tira o foco do editor.
@@ -453,8 +468,61 @@
   // Quando o post é cancelado, as imagens já guardadas são apagadas.
   modal.addEventListener('close', () => {
     if (!richDone && richMedia.length) richMedia.forEach((id) => { delMedia(id).catch(() => {}); });
-    richMedia = [];
+    richMedia = []; richKeep = []; richEdit = null;
   });
+
+  // ---------- Comentários, marcações e edição de posts ----------
+  // Comentários ficam numa chave compartilhada entre as contas deste navegador: { idDoPost: [{ id, by, text, ts }] }.
+  const CKEY = 'meoworld:comments';
+  const getComments = () => readJSON(CKEY, {});
+  const openComments = new Set();
+  const EDIT_WINDOW = 3 * 3600e3; // um post só pode ser editado nas 3 primeiras horas
+  const canEdit = (p) => !!p.mine && p.kind !== 'blog' && Date.now() - p.ts < EDIT_WINDOW;
+  function commentAuthor(by) {
+    if (by === session) return { me: true, catName: S.user.catName, username: session };
+    return localCats().find((c) => c.username === by && !isBlocked(c.id) && !blockedMe(c)) || null;
+  }
+  function commentsParts(p) {
+    if (p.noComments) return { btn: '<span class="cm-off">Comentários desativados</span>', body: '' };
+    const list = (getComments()[p.id] || []).map((c) => ({ ...c, a: commentAuthor(c.by) })).filter((c) => c.a);
+    const open = openComments.has(p.id);
+    return {
+      btn: `<button class="like cm-btn" data-act="cm-toggle" data-id="${p.id}" aria-expanded="${open}" aria-label="Comentários">${I.chat}<span>${list.length}</span></button>`,
+      body: open ? `<div class="comments">${list.map((c) => `<div class="cm"><span class="avatar">${c.a.me ? userFace() : catPic(c.a)}</span>
+          <div class="grow"><b>${esc(c.a.catName)}</b> <small>@${esc(c.a.username)} · ${timeAgo(c.ts)}</small><p>${esc(c.text)}</p></div>
+          ${c.a.me || p.mine || isAdmin() ? `<button class="cm-x" data-act="cm-del" data-id="${p.id}" data-m="${c.id}" aria-label="Apagar comentário">×</button>` : ''}</div>`).join('') || '<p class="muted cm-empty">Seja o primeiro a comentar.</p>'}
+        <form class="comment-form" data-id="${p.id}"><input name="text" maxlength="300" placeholder="Escreva um comentário…" autocomplete="off" aria-label="Comentário"><button class="btn small">Enviar</button></form></div>` : ''
+    };
+  }
+  // "@fulano @ciclano" -> ids dos gatinhos; nomes que não existem voltam em "bad".
+  function parseMentions(text) {
+    const names = [...new Set(String(text).split(/[\s,]+/).map((n) => n.replace(/^@/, '').toLowerCase()).filter(Boolean))].slice(0, 8);
+    const ids = [], bad = [];
+    names.forEach((n) => { const c = visibleCats().find((x) => x.username.toLowerCase() === n); if (c) ids.push(c.id); else bad.push('@' + n); });
+    return { ids, bad };
+  }
+  const mentionNames = (ids) => (ids || []).map(findCat).filter(Boolean).map((c) => '@' + c.username).join(' ');
+  function mentionsHTML(p) {
+    const links = (p.mentions || []).map((id) => {
+      if (id === 'u:' + session) return `<a href="#/perfil">@${esc(session)}</a>`;
+      const c = findCat(id);
+      return c && !isBlocked(id) && !blockedMe(c) ? `<a href="#/gato/${c.id}">@${esc(c.username)}</a>` : '';
+    }).filter(Boolean);
+    return links.length ? `<p class="post-with">com ${links.join(', ')}</p>` : '';
+  }
+  const mentionField = (val = '') => `<label class="field"><span>Marcar gatinhos</span><span class="plain"><input name="mentions" maxlength="160" placeholder="@usuario @outro" value="${esc(val)}" list="mention-list" autocomplete="off" autocapitalize="none" spellcheck="false"></span>
+      <small class="hint">Opcional. Escreva o @ de quem aparece na foto, separados por espaço.</small></label>
+      <datalist id="mention-list">${visibleCats().map((c) => `<option value="@${esc(c.username)}">${esc(c.catName)}</option>`).join('')}</datalist>`;
+  // Quem segue / quem é seguido, para a lista que abre ao tocar nos números do perfil.
+  function peopleOf(kind, target) {
+    const me = { me: true, catName: S.user.catName, username: session };
+    const followingOf = (name) => (accountState(name).following || []);
+    if (target === 'me') return kind === 'followers' ? localCats().filter((c) => followingOf(c.username).includes('u:' + session)) : S.following.map(findCat).filter(Boolean);
+    const c = findCat(target);
+    if (!c) return [];
+    if (kind === 'followers') return [...(isFollowing(target) ? [me] : []), ...localCats().filter((x) => x.id !== target && followingOf(x.username).includes(target))];
+    return c.local ? followingOf(c.username).map((id) => (id === 'u:' + session ? me : findCat(id))).filter(Boolean) : [];
+  }
 
   // ---------- Timeline ----------
   let feedTab = 'foryou';
@@ -482,19 +550,19 @@
     return [...mine, ...locals, ...seeds].sort((x, y) => y.ts - x.ts);
   }
   function postCard(p) {
-    const c = p.author, liked = S.likedPosts.includes(p.id);
+    const c = p.author, liked = S.likedPosts.includes(p.id), cm = commentsParts(p);
     const who = p.mine ? `<a class="avatar" href="#/perfil">${userFace()}</a>` : `<a class="avatar" href="#/gato/${c.id}">${catPic(c)}</a>`;
     const media = p.kind === 'rich' ? '' : p.mediaId ? `<img class="post-img" data-media="${p.mediaId}" alt="Imagem do post de ${esc(c.catName)}" loading="lazy">` : p.photo ? `<img class="post-img" src="${p.photo}" alt="Foto do post de ${esc(c.catName)}" loading="lazy">` : '';
     const bg = safeColor(p.bg, '#fff7e6');
     const content = p.kind === 'rich' ? richHTML(p) : p.kind === 'blog'
       ? `<div class="blog" style="--blog-bg:${bg};--blog-ink:${inkFor(bg)};--blog-font:${PF_FONTS[p.font] || PF_FONTS.Fredoka}">${media}<h2>${esc(p.title)}</h2><div class="blog-body">${fmt(p.body)}</div></div>`
-      : `${media}${p.caption ? `<p class="post-cap">${esc(p.caption)}</p>` : ''}`;
+      : `${media}${p.caption ? `<p class="post-cap">${esc(p.caption)}</p>` : ''}${mentionsHTML(p)}`;
     return `<article class="card post">
-      <header>${who}<div class="grow"><a href="${p.mine ? '#/perfil' : '#/gato/' + c.id}"><b>${esc(c.catName)}</b></a><small>@${esc(c.username)} · ${timeAgo(p.ts)}</small></div>
-        ${p.mine ? `<button class="icon-btn soft" data-act="del-post" data-id="${p.id}" aria-label="Excluir post">${I.trash}</button>`
+      <header>${who}<div class="grow"><a href="${p.mine ? '#/perfil' : '#/gato/' + c.id}"><b>${esc(c.catName)}</b></a><small>@${esc(c.username)} · ${timeAgo(p.ts)}${p.edited ? ' · editado' : ''}</small></div>
+        ${p.mine ? `${canEdit(p) ? `<button class="icon-btn soft" data-act="edit-post" data-id="${p.id}" aria-label="Editar post">${I.pencil}</button>` : ''}<button class="icon-btn soft" data-act="del-post" data-id="${p.id}" aria-label="Excluir post">${I.trash}</button>`
           : `${isFollowing(c.id) ? '' : followBtn(c.id)}<button class="icon-btn soft" data-act="more" data-id="${c.id}" data-m="${p.id}" aria-label="Mais opções">${I.dots}</button>`}</header>
       ${content}
-      <footer><button class="like ${liked ? 'on' : ''}" data-act="like-post" data-id="${p.id}" aria-pressed="${liked}" aria-label="Curtir">${I.heart}<span>${p.likes + (liked ? 1 : 0)}</span></button></footer>
+      <footer><button class="like ${liked ? 'on' : ''}" data-act="like-post" data-id="${p.id}" aria-pressed="${liked}" aria-label="Curtir">${I.heart}<span>${p.likes + (liked ? 1 : 0)}</span></button>${cm.btn}</footer>${cm.body}
     </article>`;
   }
   function viewHome() {
@@ -548,7 +616,7 @@
     return `<div class="head-row"><div><h1 class="page-title">${esc(a.name)}</h1><p class="page-sub"><a href="#/catbooks">← Todos os álbuns</a></p></div>
         <div class="actions" style="margin:0"><button class="btn" data-act="add-photos" data-id="${a.id}">+ Fotos</button>
         <button class="btn danger" data-act="del-album" data-id="${a.id}">Excluir álbum</button></div></div>
-      ${a.items.length ? `<div class="grid">${a.items.map((m) => `<button class="photo" data-act="open-photo" data-id="${a.id}" data-m="${m}"><img data-media="${m}" alt="Foto do álbum ${esc(a.name)}" loading="lazy"></button>`).join('')}</div>`
+      ${a.items.length ? `<div class="grid">${a.items.map((m) => `<button class="photo" data-act="open-photo" data-id="${a.id}" data-m="${m}"><img data-media="${m}" alt="${esc((a.captions || {})[m] || 'Foto do álbum ' + a.name)}" loading="lazy">${(a.captions || {})[m] ? `<span class="photo-cap">${esc(a.captions[m])}</span>` : ''}</button>`).join('')}</div>`
         : '<div class="card empty">Álbum vazio. Toque em “+ Fotos”.</div>'}`;
   }
 
@@ -768,7 +836,7 @@
         </div>
         ${p.bio ? `<p class="pf-bio">${esc(p.bio)}</p>` : ''}
         <ul class="pf-tags"><li>${esc(p.breed)}</li><li>${esc(p.gender)}</li><li>${ageText(p.birth)}</li>${p.hideBirth ? '' : `<li>Nasceu em ${dateBR(p.birth)}</li>`}</ul>
-        <div class="pf-stats">${stats.map(([n, label]) => `<div><b>${n}</b><span>${label}</span></div>`).join('')}</div>
+        <div class="pf-stats">${stats.map(([n, label, act]) => (act ? `<button type="button" class="stat" data-act="people" data-id="${act[0]}" data-m="${act[1]}"><b>${n}</b><span>${label}</span></button>` : `<div><b>${n}</b><span>${label}</span></div>`)).join('')}</div>
       </div></div></section>`;
   }
   // ---------- Primeiros passos (lista de tarefas depois do cadastro) ----------
@@ -798,7 +866,7 @@
     const photos = S.albums.reduce((n, a) => n + a.items.length, 0);
     return pfPage(S.user.theme, `${profileHTML({ ...S.user, owner: S.settings.showOwner ? S.user.owner : '', hideBirth: !S.settings.showBirth }, S.user.photo ? userFace() : catFace(S.user.coat), true,
         `<span class="pf-actions"><button class="btn" data-act="edit-profile">Editar perfil</button></span>`,
-        [[S.posts.length, S.posts.length === 1 ? 'post' : 'posts'], [localFollowers('u:' + session), 'seguidores'], [S.following.filter(findCat).length, 'seguindo'], [S.albums.length, S.albums.length === 1 ? 'álbum' : 'álbuns'], [photos, photos === 1 ? 'foto' : 'fotos'], [S.tiks.length, S.tiks.length === 1 ? 'vídeo' : 'vídeos']])}
+        [[S.posts.length, S.posts.length === 1 ? 'post' : 'posts'], [localFollowers('u:' + session), 'seguidores', ['followers', 'me']], [S.following.filter(findCat).length, 'seguindo', ['following', 'me']], [S.albums.length, S.albums.length === 1 ? 'álbum' : 'álbuns'], [photos, photos === 1 ? 'foto' : 'fotos'], [S.tiks.length, S.tiks.length === 1 ? 'vídeo' : 'vídeos']])}
       ${onboardHTML()}
       ${postsSection(allPosts().filter((p) => p.mine), 'Seus posts aparecem aqui. <button class="link" data-act="new-rich">Criar o primeiro</button>')}
       <h2 class="section-title">CatBooks</h2>
@@ -814,7 +882,7 @@
     const followers = c.local ? localFollowers(c.id) : c.followers;
     return pfPage(c.theme, `${profileHTML(c, c.photo ? catPic(c) : catFace(c.coat, c.eyes), false,
         `<span class="pf-actions">${followBtn(c.id, false)}<a class="btn ghost" href="#/chats/${c.id}">Miau</a><button class="icon-btn soft" data-act="more" data-id="${c.id}" aria-label="Mais opções">${I.dots}</button></span>`,
-        [[followers + (isFollowing(c.id) ? 1 : 0), 'seguidores'], [twinScore(c) + '%', 'gêmeo seu']])}
+        [[followers + (isFollowing(c.id) ? 1 : 0), 'seguidores', ['followers', c.id]], ...(c.local ? [[peopleOf('following', c.id).length, 'seguindo', ['following', c.id]]] : []), [twinScore(c) + '%', 'gêmeo seu']])}
       ${postsSection(allPosts().filter((p) => !p.mine && p.author.id === c.id), 'Nenhum post ainda.')}
       <p class="muted" style="margin-top:12px">${c.local ? 'Conta criada neste navegador (modo de teste local).' : `Perfil de demonstração.${c.credit ? ` Foto: ${esc(c.credit.by)}, ${esc(c.credit.license)}, via <a href="${esc(c.credit.url)}" target="_blank" rel="noopener noreferrer"><u>Wikimedia Commons</u></a>.` : ''}`}</p>`);
   }
@@ -1091,7 +1159,7 @@
     const msgs = document.getElementById('msgs');
     if (msgs) msgs.scrollTop = msgs.scrollHeight;
   }
-  window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
+  window.addEventListener('hashchange', () => { if (modal.open) modal.close(); render(); window.scrollTo(0, 0); });
 
   // ---------- Ações ----------
   // ---------- Editar perfil (rascunho) e ajuste de foto/capa ----------
@@ -1197,6 +1265,13 @@
     return c.toDataURL('image/jpeg', 0.85);
   }
 
+  const FIG_CTL = '<span class="rich-ctl fig-ctl"><button type="button" data-act="rich-pic" data-id="left" aria-label="Mover para a esquerda">←</button><button type="button" data-act="rich-pic" data-id="right" aria-label="Mover para a direita">→</button><button type="button" data-act="rich-pic" data-id="down" aria-label="Colocar em uma linha própria, abaixo">↓</button><button type="button" data-act="rich-pic" data-id="del" aria-label="Remover foto">×</button></span>';
+  async function richFig(id) {
+    const fig = document.createElement('figure');
+    fig.dataset.mid = id;
+    fig.innerHTML = `<img alt="" src="${await mediaURL(id)}">${FIG_CTL}`;
+    return fig;
+  }
   function richNewRow() {
     const row = document.createElement('div');
     row.className = 'rich-imgs'; row.contentEditable = 'false';
@@ -1251,8 +1326,10 @@
       location.hash = '#/catbooks';
     },
     'open-photo': (id, el) => {
-      openModal(`<img data-media="${el.dataset.m}" alt="Foto ampliada"><div class="actions">
-        <button class="btn danger" data-act="del-photo" data-id="${id}" data-m="${el.dataset.m}">Excluir foto</button><button class="btn ghost" data-close>Fechar</button></div>`, 'lightbox');
+      const a = S.albums.find((x) => x.id === id), m = el.dataset.m;
+      openModal(`<img data-media="${m}" alt="Foto ampliada">
+        <form id="cap-form" data-id="${id}" data-m="${m}"><label class="field"><span>Legenda</span><span class="plain"><input name="caption" maxlength="120" placeholder="Escreva uma legenda para esta foto" value="${esc(((a && a.captions) || {})[m] || '')}"></span></label>
+        <div class="actions"><button type="button" class="btn danger" data-act="del-photo" data-id="${id}" data-m="${m}">Excluir foto</button><button type="button" class="btn ghost" data-close>Fechar</button><button class="btn">Salvar legenda</button></div></form>`, 'lightbox');
       hydrate(modal);
     },
     'del-photo': async (id, el) => {
@@ -1306,6 +1383,7 @@
     'new-post': () => openModal(`<form id="post-form"><h2>Novo post</h2>
       <label class="field"><span>Foto</span><span class="plain"><input type="file" name="file" accept="image/*" required style="padding-top:14px"></span></label>
       <label class="field"><span>Legenda</span><span class="plain"><textarea name="caption" maxlength="200" rows="3" placeholder="O que o seu gatinho aprontou hoje?"></textarea></span></label>
+      ${mentionField()}
       <p class="error" role="alert"></p>
       <div class="actions"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Publicar</button></div></form>`),
     'del-post': async (id) => {
@@ -1506,6 +1584,32 @@
     },
     'mod-restore': (id) => { const m = getMod(); delete m.suspended[id]; putMod(m); render(); },
     'onboard-close': () => { S.onboard = false; save(); render(); },
+    // ----- comentários, seguidores, edição -----
+    'cm-toggle': (id) => { if (openComments.has(id)) openComments.delete(id); else openComments.add(id); render(); },
+    'cm-del': (id, el) => {
+      const all = getComments();
+      all[id] = (all[id] || []).filter((c) => c.id !== el.dataset.m);
+      localStorage.setItem(CKEY, JSON.stringify(all)); render();
+    },
+    people: (kind, el) => {
+      const target = el.dataset.m, list = peopleOf(kind, target), c = target === 'me' ? null : findCat(target);
+      const extra = kind === 'followers' && c && !c.local ? c.followers : 0;
+      openModal(`<h2>${kind === 'followers' ? 'Seguidores' : 'Seguindo'}</h2>
+        ${list.length ? `<ul class="plain-list people">${list.map((x) => `<li><a class="avatar" href="${x.me ? '#/perfil' : '#/gato/' + x.id}">${x.me ? userFace() : catPic(x)}</a>
+          <a class="grow" href="${x.me ? '#/perfil' : '#/gato/' + x.id}"><b>${esc(x.catName)}${x.me ? ' (você)' : ''}</b><small>@${esc(x.username)}</small></a></li>`).join('')}</ul>` : `<p class="muted">${kind === 'followers' ? 'Ninguém por aqui ainda.' : 'Ainda não segue ninguém.'}</p>`}
+        ${extra ? `<p class="muted" style="margin-top:12px">E mais ${extra} seguidores de demonstração.</p>` : ''}
+        <div class="actions" style="margin-top:14px"><button class="btn ghost" data-close>Fechar</button></div>`);
+    },
+    'edit-post': (id) => {
+      const p = S.posts.find((x) => x.id === id);
+      if (!p || !canEdit({ ...p, mine: true })) { alert('Este post não pode mais ser editado: o prazo é de 3 horas depois de publicar.'); render(); return; }
+      if (p.kind === 'rich') { openRich(p); return; }
+      openModal(`<form id="edit-form" data-id="${p.id}"><h2>Editar post</h2>
+        <label class="field"><span>Legenda</span><span class="plain"><textarea name="caption" maxlength="200" rows="3">${esc(p.caption || '')}</textarea></span></label>
+        ${mentionField(mentionNames(p.mentions))}
+        <p class="error" role="alert"></p>
+        <div class="actions"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Salvar</button></div></form>`);
+    },
     logout: () => { setSession(null); authView = 'login'; location.hash = ''; render(); },
     'delete-account': async () => {
       if (!confirm(`Excluir a conta @${session}? Isso apaga o perfil, álbuns, vídeos e conversas dela neste navegador.`)) return;
@@ -1638,7 +1742,7 @@
       const ed = f.querySelector('#rich-editor'), blocks = [], used = [];
       [...ed.childNodes].forEach((n) => {
         if (n.nodeType === 1 && n.classList.contains('rich-imgs')) {
-          const ids = [...n.querySelectorAll('figure')].map((g) => g.dataset.mid).filter((x) => richMedia.includes(x));
+          const ids = [...n.querySelectorAll('figure')].map((g) => g.dataset.mid).filter((x) => richMedia.includes(x) || richKeep.includes(x));
           if (ids.length) { blocks.push({ t: 'img', ids, stack: n.classList.contains('stack') }); used.push(...ids); }
           return;
         }
@@ -1649,20 +1753,52 @@
       });
       if (!blocks.length) { err.textContent = 'Escreva alguma coisa ou adicione uma foto.'; return; }
       const tags = [...new Set(str('tags').split(/[\s,]+/).map(cleanTag).filter(Boolean))].slice(0, 8);
-      S.posts.push({ id: uid(), kind: 'rich', blocks: blocks.slice(0, 60), tags, ts: Date.now() });
+      const prev = richEdit && S.posts.find((x) => x.id === richEdit);
+      if (prev && !canEdit({ ...prev, mine: true })) { err.textContent = 'O prazo de 3 horas para editar este post acabou.'; return; }
+      if (prev) Object.assign(prev, { blocks: blocks.slice(0, 60), tags, noComments: !d.comments, edited: true });
+      else S.posts.push({ id: uid(), kind: 'rich', blocks: blocks.slice(0, 60), tags, noComments: !d.comments, ts: Date.now() });
       richDone = true;
-      richMedia.filter((id) => !used.includes(id)).forEach((id) => { delMedia(id).catch(() => {}); });
+      [...richMedia, ...richKeep].filter((id) => !used.includes(id)).forEach((id) => { delMedia(id).catch(() => {}); });
       save(); modal.close(); feedTab = 'foryou'; location.hash = '#/'; render(); window.scrollTo(0, 0);
+      return;
+    }
+
+    if (f.classList.contains('comment-form')) {
+      const text = str('text');
+      if (!text) return;
+      const all = getComments();
+      (all[f.dataset.id] = all[f.dataset.id] || []).push({ id: uid(), by: session, text, ts: Date.now() });
+      try { localStorage.setItem(CKEY, JSON.stringify(all)); } catch { alert('Não foi possível salvar o comentário: o espaço deste navegador está cheio.'); }
+      render();
+      return;
+    }
+
+    if (f.id === 'cap-form') {
+      const a = S.albums.find((x) => x.id === f.dataset.id);
+      if (a) { a.captions = a.captions || {}; if (str('caption')) a.captions[f.dataset.m] = str('caption'); else delete a.captions[f.dataset.m]; save(); }
+      modal.close(); render();
+      return;
+    }
+
+    if (f.id === 'edit-form') {
+      const p = S.posts.find((x) => x.id === f.dataset.id);
+      if (!p || !canEdit({ ...p, mine: true })) { err.textContent = 'O prazo de 3 horas para editar este post acabou.'; return; }
+      const mt = parseMentions(str('mentions'));
+      if (mt.bad.length) { err.textContent = `Não encontrei: ${mt.bad.join(', ')}.`; return; }
+      Object.assign(p, { caption: str('caption'), mentions: mt.ids, edited: true });
+      save(); modal.close(); render();
       return;
     }
 
     if (f.id === 'post-form') {
       const file = f.file.files[0];
       if (!file || !file.type.startsWith('image/')) { err.textContent = 'Escolha uma foto.'; return; }
+      const mt = parseMentions(str('mentions'));
+      if (mt.bad.length) { err.textContent = `Não encontrei: ${mt.bad.join(', ')}.`; return; }
       try {
         const cv = await shrink(file, 1080);
         const blob = await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.85));
-        S.posts.push({ id: uid(), mediaId: await putMedia(blob), caption: str('caption'), ts: Date.now() });
+        S.posts.push({ id: uid(), mediaId: await putMedia(blob), caption: str('caption'), mentions: mt.ids, ts: Date.now() });
         save(); modal.close(); feedTab = 'foryou'; location.hash = '#/'; render(); window.scrollTo(0, 0);
       } catch { err.textContent = 'Não consegui publicar essa foto.'; }
     }

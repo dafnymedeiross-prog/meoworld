@@ -742,3 +742,28 @@ dialog.rich-modal { width: min(96vw, 560px); padding: 16px; }
   .feed-bar .tabs { flex: 1 1 100%; }
   .feed-bar .tabs button { white-space: nowrap; }
 }
+
+/* ---------- Comentários, marcações, legendas e listas de seguidores ---------- */
+.post footer { display: flex; align-items: center; gap: 4px; }
+.cm-off { margin-left: 8px; font-size: .85rem; color: var(--blue); }
+.comments { padding: 4px 14px 14px; border-top: 2px solid var(--sky-3); display: grid; gap: 10px; }
+.cm { display: flex; align-items: flex-start; gap: 10px; }
+.cm .avatar { width: 34px; height: 34px; background: var(--sky-3); flex: none; }
+.cm .grow { flex: 1; min-width: 0; }
+.cm small { color: var(--blue); }
+.cm p { line-height: 1.4; overflow-wrap: anywhere; }
+.cm-x { flex: none; width: 28px; height: 28px; border-radius: 50%; color: #b14848; font-weight: 700; }
+.cm-x:hover { background: #fde3e3; }
+.cm-empty { padding-top: 8px; }
+.comment-form { display: flex; gap: 8px; }
+.comment-form input { flex: 1; min-width: 0; height: 40px; border: 0; border-radius: 20px; background: var(--sky-2); padding: 0 14px; }
+.post-with { padding: 4px 16px 0; color: var(--blue-d); font-weight: 700; }
+.post-with a { text-decoration: underline; text-underline-offset: 2px; }
+.pf-stats .stat { padding: 0; text-align: inherit; color: inherit; border-radius: 10px; }
+.pf-stats .stat:hover b { text-decoration: underline; }
+.people a.grow { display: block; }
+.photo { position: relative; }
+.photo-cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 8px 6px; background: linear-gradient(transparent, rgba(0, 0, 0, .65)); color: #fff; font-size: .8rem; font-weight: 600; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cap-form { text-align: left; }
+.post header .icon-btn + .icon-btn { margin-left: 4px; }
+.themed .comments { border-top-color: color-mix(in srgb, var(--pf-ink) 14%, transparent); }
