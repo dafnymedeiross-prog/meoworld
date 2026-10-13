@@ -191,10 +191,30 @@
       img.src = src;
     });
   }
+  // Fotos HEIC/HEIF (padrão de muitos celulares) são convertidas para JPEG aqui mesmo, no aparelho.
+  const isHeic = (f) => /image\/hei[cf]/i.test(f.type) || /\.hei[cf]$/i.test(f.name);
+  function toast(text) {
+    let el = document.getElementById('toast');
+    if (!el) { el = document.body.appendChild(Object.assign(document.createElement('div'), { id: 'toast' })); el.setAttribute('role', 'status'); }
+    el.textContent = text; el.hidden = !text;
+  }
+  async function toUsable(file) {
+    if (!isHeic(file)) return file;
+    toast('Convertendo foto HEIC…');
+    try {
+      if (!window.heic2any) await loadScript('vendor/heic2any.min.js');
+      const out = await window.heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+      return new File([Array.isArray(out) ? out[0] : out], file.name.replace(/\.hei[cf]$/i, '.jpg'), { type: 'image/jpeg' });
+    } catch (e) {
+      console.error('MEOWorld: HEIC', e);
+      alert(`Não consegui converter “${file.name}”. Tente outra foto ou salve em JPEG.`);
+      return file;
+    } finally { toast(''); }
+  }
   const pickFile = (accept, multiple = false) => new Promise((res) => {
     const i = document.createElement('input');
-    i.type = 'file'; i.accept = accept; i.multiple = multiple;
-    i.onchange = () => res([...i.files]);
+    i.type = 'file'; i.accept = accept.includes('image/*') ? accept + ',.heic,.heif' : accept; i.multiple = multiple;
+    i.onchange = async () => res(await Promise.all([...i.files].map(toUsable)));
     i.click();
   });
 
@@ -1438,7 +1458,7 @@
     'feed-tab': (id) => { feedTab = id; render(); window.scrollTo(0, 0); },
     'like-post': (id) => { S.likedPosts = S.likedPosts.includes(id) ? S.likedPosts.filter((x) => x !== id) : [...S.likedPosts, id]; save(); render(); },
     'new-post': () => openModal(`<form id="post-form"><h2>Novo post</h2>
-      <label class="field"><span>Foto</span><span class="plain"><input type="file" name="file" accept="image/*" required style="padding-top:14px"></span></label>
+      <label class="field"><span>Foto</span><span class="plain"><input type="file" name="file" accept="image/*,.heic,.heif" required style="padding-top:14px"></span></label>
       <label class="field"><span>Legenda</span><span class="plain"><textarea name="caption" maxlength="200" rows="3" placeholder="O que o seu gatinho aprontou hoje?"></textarea></span></label>
       ${mentionField()}
       <p class="error" role="alert"></p>
@@ -1644,6 +1664,7 @@
     // ----- comentários, seguidores, edição -----
     'cm-toggle': (id) => { if (openComments.has(id)) openComments.delete(id); else openComments.add(id); render(); },
     'cm-del': (id, el) => {
+      if (!confirm('Você tem certeza que quer apagar esse comentário? Não tem como voltar atrás.')) return;
       const all = getComments();
       all[id] = (all[id] || []).filter((c) => c.id !== el.dataset.m);
       localStorage.setItem(CKEY, JSON.stringify(all)); rerender();
@@ -1851,7 +1872,8 @@
     }
 
     if (f.id === 'post-form') {
-      const file = f.file.files[0];
+      let file = f.file.files[0];
+      if (file) file = await toUsable(file);
       if (!file || !file.type.startsWith('image/')) { err.textContent = 'Escolha uma foto.'; return; }
       const mt = parseMentions(str('mentions'));
       if (mt.bad.length) { err.textContent = `Não encontrei: ${mt.bad.join(', ')}.`; return; }
